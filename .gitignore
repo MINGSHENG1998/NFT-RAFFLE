@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/client/nft-raffle/node_modules
 /.pnp
 .pnp.js
 
