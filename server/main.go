@@ -1,8 +1,8 @@
 package main
 
 import (
-	"net/http"
 	helper "nft-raffle/helpers"
+	"nft-raffle/routes"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,9 +17,8 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Logger())
 
-	router.GET("/test", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"testing": "OK"})
-	})
+	routerGroup := router.Group("/api")
+	routes.AddRoutes(routerGroup)
 
 	router.Run(":" + port)
 }
