@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"nft-raffle/database"
@@ -141,7 +143,89 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
-		signedToken, signedRefreshToken, err := helpers.GenerateAllTokens(user.Email, user.First_name, user.Last_name, user.User_id, user.User_role)
+		signedToken, signedRefreshToken, err := helpers.GenerateAllTokens(foundUser.Email, foundUser.First_name, foundUser.Last_name, foundUser.User_id, foundUser.User_role)
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		err = helpers.UpdateAllTokens(signedToken, signedRefreshToken, foundUser.User_id)
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		err = userCollection.FindOne(ctx, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
+		defer cancel()
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, foundUser)
+	}
+}
+
+func RefreshToken() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var requestBody map[string]interface{}
+
+		jsonData, err := ioutil.ReadAll(c.Request.Body)
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := json.Unmarshal(jsonData, &requestBody); err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		signedRefreshToken, ok := requestBody["refresh_token"].(string)
+
+		if !ok {
+			log.Println("invalid refresh token")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid refresh token"})
+			return
+		}
+
+		claims, err := helpers.ValidateRefreshToken(signedRefreshToken)
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		uid := claims.Uid
+		var foundUser models.User
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+		err = userCollection.FindOne(ctx, bson.M{"user_id": uid}).Decode(&foundUser)
+		defer cancel()
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		if foundUser.Email == "" {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+			return
+		}
+
+		signedToken, signedRefreshToken, err := helpers.GenerateAllTokens(foundUser.Email, foundUser.First_name, foundUser.Last_name, foundUser.User_id, foundUser.User_role)
 
 		if err != nil {
 			log.Println(err)

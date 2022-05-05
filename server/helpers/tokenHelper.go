@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"errors"
 	"log"
 	"nft-raffle/database"
 	"time"
@@ -104,4 +105,56 @@ func UpdateAllTokens(signedToken, signedRefreshToken, userId string) error {
 	}
 
 	return nil
+}
+
+func ValidateAccessToken(signedToken string) (claims *SignedDetails, err error) {
+	token, err := jwt.ParseWithClaims(
+		signedToken,
+		&SignedDetails{},
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(accessTokenSecretKey), nil
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*SignedDetails)
+
+	if !ok {
+		return nil, errors.New("invalid token")
+	}
+
+	if claims.ExpiresAt < time.Now().Local().Unix() {
+		return nil, errors.New("token has expired")
+	}
+
+	return claims, nil
+}
+
+func ValidateRefreshToken(signedToken string) (claims *SignedDetails, err error) {
+	token, err := jwt.ParseWithClaims(
+		signedToken,
+		&SignedDetails{},
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(refreshTokenSecretKey), nil
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*SignedDetails)
+
+	if !ok {
+		return nil, errors.New("invalid token")
+	}
+
+	if claims.ExpiresAt < time.Now().Local().Unix() {
+		return nil, errors.New("token has expired")
+	}
+
+	return claims, nil
 }
