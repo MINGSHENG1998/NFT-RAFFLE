@@ -1,9 +1,9 @@
 import React from 'react'
 
-function Single() {
+function Driver_Details() {
   return (
     <div>Single</div>
   )
 }
 
-export default Single
+export default Driver_Details
