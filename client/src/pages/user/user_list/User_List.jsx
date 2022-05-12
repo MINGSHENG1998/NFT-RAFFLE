@@ -2,7 +2,7 @@ import "./user_list.scss";
 
 const User_List = () => {
   return (
-    <div>User_List</div>
+    <div className="list">User_List</div>
   )
 }
 
