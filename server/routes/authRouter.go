@@ -6,10 +6,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var (
+	authController controllers.AuthController = controllers.NewAuthController()
+)
+
 func AuthRoutes(superRoute *gin.RouterGroup) {
 	authRouter := superRoute.Group("/auth")
 
-	authRouter.POST("/signup", controllers.SignUp())
-	authRouter.POST("/login", controllers.Login())
-	authRouter.POST("/refreshToken", controllers.RefreshToken())
+	authRouter.POST("/signup", authController.SignUp())
+	authRouter.POST("/login", authController.Login())
+	authRouter.POST("/refreshToken", authController.RefreshToken())
 }

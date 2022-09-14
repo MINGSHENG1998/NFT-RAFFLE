@@ -9,7 +9,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Authenticate() gin.HandlerFunc {
+type AuthMiddleware interface {
+	Authenticate() gin.HandlerFunc
+}
+
+type authMiddlewareStruct struct{}
+
+var (
+	tokenHelper helpers.TokenHelper = helpers.NewTokenHelper()
+)
+
+func NewAuthMiddleware() AuthMiddleware {
+	return &authMiddlewareStruct{}
+}
+
+func (a *authMiddlewareStruct) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clientAccessToken := strings.Split(c.Request.Header.Get("Authorization"), " ")[1]
 
@@ -19,7 +33,7 @@ func Authenticate() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := helpers.ValidateAccessToken(clientAccessToken)
+		claims, err := tokenHelper.ValidateAccessToken(clientAccessToken)
 
 		if err != nil {
 			log.Println(err)

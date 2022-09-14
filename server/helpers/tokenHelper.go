@@ -13,28 +13,43 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type TokenHelper interface {
+	GenerateAllTokens(email, firstName, lastName, uid, userRole string, is_email_verified bool) (signedToken, signedRefreshToken string, err error)
+	UpdateAllTokens(signedToken, signedRefreshToken, userId string) error
+	ValidateAccessToken(signedToken string) (claims *SignedDetails, err error)
+	ValidateRefreshToken(signedToken string) (claims *SignedDetails, err error)
+}
+
+type tokenHelperStruct struct{}
 type SignedDetails struct {
-	Email      string
-	First_name string
-	Last_name  string
-	Uid        string
-	User_role  string
+	Email             string
+	First_name        string
+	Last_name         string
+	Uid               string
+	User_role         string
+	Is_email_verified bool
 	jwt.StandardClaims
 }
 
-var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+var (
+	userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
 
-var accessTokenSecretKey = GetEnvVariable("MY_ACCESS_TOKEN_SECRET_KEY")
+	accessTokenSecretKey  = dotEnvHelperImpl.GetEnvVariable("MY_ACCESS_TOKEN_SECRET_KEY")
+	refreshTokenSecretKey = dotEnvHelperImpl.GetEnvVariable("MY_REFRESH_TOKEN_SECRET_KEY")
+)
 
-var refreshTokenSecretKey = GetEnvVariable("MY_REFRESH_TOKEN_SECRET_KEY")
+func NewTokenHelper() TokenHelper {
+	return &tokenHelperStruct{}
+}
 
-func GenerateAllTokens(email, firstName, lastName, uid, userRole string) (signedToken, signedRefreshToken string, err error) {
+func (t *tokenHelperStruct) GenerateAllTokens(email, firstName, lastName, uid, userRole string, is_email_verified bool) (signedToken, signedRefreshToken string, err error) {
 	claims := &SignedDetails{
-		Email:      email,
-		First_name: firstName,
-		Last_name:  lastName,
-		Uid:        uid,
-		User_role:  userRole,
+		Email:             email,
+		First_name:        firstName,
+		Last_name:         lastName,
+		Uid:               uid,
+		User_role:         userRole,
+		Is_email_verified: is_email_verified,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),
 			IssuedAt:  time.Now().Local().Unix(),
@@ -68,7 +83,7 @@ func GenerateAllTokens(email, firstName, lastName, uid, userRole string) (signed
 	return signedToken, signedRefreshToken, err
 }
 
-func UpdateAllTokens(signedToken, signedRefreshToken, userId string) error {
+func (t *tokenHelperStruct) UpdateAllTokens(signedToken, signedRefreshToken, userId string) error {
 	var updateObj bson.D
 
 	updateObj = append(updateObj, bson.E{Key: "access_token", Value: signedToken})
@@ -107,7 +122,7 @@ func UpdateAllTokens(signedToken, signedRefreshToken, userId string) error {
 	return nil
 }
 
-func ValidateAccessToken(signedToken string) (claims *SignedDetails, err error) {
+func (t *tokenHelperStruct) ValidateAccessToken(signedToken string) (claims *SignedDetails, err error) {
 	token, err := jwt.ParseWithClaims(
 		signedToken,
 		&SignedDetails{},
@@ -133,7 +148,7 @@ func ValidateAccessToken(signedToken string) (claims *SignedDetails, err error) 
 	return claims, nil
 }
 
-func ValidateRefreshToken(signedToken string) (claims *SignedDetails, err error) {
+func (t *tokenHelperStruct) ValidateRefreshToken(signedToken string) (claims *SignedDetails, err error) {
 	token, err := jwt.ParseWithClaims(
 		signedToken,
 		&SignedDetails{},
