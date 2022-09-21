@@ -13,5 +13,6 @@ var (
 func SendGridMailRoutes(superRoute *gin.RouterGroup) {
 	sendgridMailRouter := superRoute.Group("/send-grid")
 
+	sendgridMailRouter.GET("/verify-verification-mail", sendGridController.VerifyVerificationMail())
 	sendgridMailRouter.GET("/test", sendGridController.SendGridTesting())
 }

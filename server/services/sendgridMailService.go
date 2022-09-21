@@ -1,6 +1,7 @@
 package services
 
 import (
+	"log"
 	"nft-raffle/dto"
 	"nft-raffle/enums"
 	"nft-raffle/helpers"
@@ -13,7 +14,7 @@ import (
 type SendGridMailService interface {
 	SendMailAsync(body []byte) (chan *rest.Response, chan error)
 	DynamicTemplate(mailRequest *dto.MailRequest) []byte
-	SendVerificationMailAsync(mailRequest *dto.MailRequest) (chan *rest.Response, chan error)
+	SendVerificationMailAsync(mailRequest *dto.MailRequest)
 }
 
 type sendGridMailServiceStruct struct{}
@@ -64,8 +65,18 @@ func (s *sendGridMailServiceStruct) DynamicTemplate(mailRequest *dto.MailRequest
 	return mail.GetRequestBody(m)
 }
 
-func (s *sendGridMailServiceStruct) SendVerificationMailAsync(mailRequest *dto.MailRequest) (chan *rest.Response, chan error) {
+func (s *sendGridMailServiceStruct) SendVerificationMailAsync(mailRequest *dto.MailRequest) {
 	body := s.DynamicTemplate(mailRequest)
 	responseCh, errCh := s.SendMailAsync(body)
-	return responseCh, errCh
+
+	select {
+	case err := <-errCh:
+		log.Println(err)
+	case response := <-responseCh:
+		// do nothing
+		_ = response
+		for _, val := range mailRequest.Tos {
+			log.Printf("Verification mail for %s has been sent \n", val.Address)
+		}
+	}
 }

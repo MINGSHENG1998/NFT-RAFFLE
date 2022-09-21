@@ -204,7 +204,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 			DynamicTemplateData: dynamicTemplateData,
 		}
 
-		responseCh, errCh := sendGridMailService.SendVerificationMailAsync(mailReq)
+		go sendGridMailService.SendVerificationMailAsync(mailReq)
 
 		ctx2, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		mailCount, err := mailCollection.CountDocuments(
@@ -246,15 +246,6 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 				})
 				return
 			}
-		}
-
-		select {
-		case err := <-errCh:
-			log.Println(err)
-		case response := <-responseCh:
-			// do nothing
-			_ = response
-			log.Println("Verifcation mail for ", user.Email, " is successfully sent")
 		}
 
 		c.JSON(http.StatusOK, resultInsertionNumber)
