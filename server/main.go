@@ -1,14 +1,18 @@
 package main
 
 import (
-	helper "nft-raffle/helpers"
+	"nft-raffle/helpers"
 	"nft-raffle/routes"
 
 	"github.com/gin-gonic/gin"
 )
 
+var (
+	dotEnvHelper helpers.DotEnvHelper = helpers.NewDotEnvHelper()
+)
+
 func main() {
-	port := helper.GetEnvVariable("PORT")
+	port := dotEnvHelper.GetEnvVariable("PORT")
 
 	if port == "" {
 		port = "8000"

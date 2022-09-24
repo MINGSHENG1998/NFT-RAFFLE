@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -11,11 +12,21 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const projectDirName = "server"
+
+var (
+	Client *mongo.Client = DBinstance()
+)
+
 func DBinstance() *mongo.Client {
-	err := godotenv.Load(".env")
+
+	projectName := regexp.MustCompile(`^(.*` + projectDirName + `)`)
+	currentWorkDirectory, _ := os.Getwd()
+	rootPath := projectName.Find([]byte(currentWorkDirectory))
+	err := godotenv.Load(string(rootPath) + `/.env`)
 
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal("Error loading .env file in databaseConnection.go ", err.Error())
 	}
 
 	MongoDb := os.Getenv("MONGODB_URL")
@@ -40,8 +51,6 @@ func DBinstance() *mongo.Client {
 
 	return client
 }
-
-var Client *mongo.Client = DBinstance()
 
 func OpenCollection(client *mongo.Client, collectionName string) *mongo.Collection {
 	var collection *mongo.Collection = client.Database("nft_raffle_db").Collection(collectionName)
