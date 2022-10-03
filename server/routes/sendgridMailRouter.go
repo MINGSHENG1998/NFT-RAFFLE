@@ -13,6 +13,7 @@ var (
 func SendGridMailRoutes(superRoute *gin.RouterGroup) {
 	sendgridMailRouter := superRoute.Group("/send-grid")
 
+	sendgridMailRouter.POST("/send-password-reset-mail", sendGridController.SendPasswordResetMail())
 	sendgridMailRouter.GET("/verify-verification-mail", sendGridController.VerifyVerificationMail())
-	sendgridMailRouter.GET("/test", sendGridController.SendGridTesting())
+	sendgridMailRouter.GET("/verify-password-reset-mail", sendGridController.VerifyPasswordResetMail())
 }

@@ -14,12 +14,18 @@ import (
 
 const projectDirName = "server"
 
-var (
-	Client *mongo.Client = DBinstance()
-)
+type NftRaffleMongoDbConnection interface {
+	OpenCollection(client *mongo.Client, collectionName string) *mongo.Collection
+	DBClient() *mongo.Client
+}
 
-func DBinstance() *mongo.Client {
+type nftRaffleMongoDbConnectionStruct struct{}
 
+func NewNftRaffleMongoDbConnection() NftRaffleMongoDbConnection {
+	return &nftRaffleMongoDbConnectionStruct{}
+}
+
+func (n *nftRaffleMongoDbConnectionStruct) DBClient() *mongo.Client {
 	projectName := regexp.MustCompile(`^(.*` + projectDirName + `)`)
 	currentWorkDirectory, _ := os.Getwd()
 	rootPath := projectName.Find([]byte(currentWorkDirectory))
@@ -52,7 +58,7 @@ func DBinstance() *mongo.Client {
 	return client
 }
 
-func OpenCollection(client *mongo.Client, collectionName string) *mongo.Collection {
+func (n *nftRaffleMongoDbConnectionStruct) OpenCollection(client *mongo.Client, collectionName string) *mongo.Collection {
 	var collection *mongo.Collection = client.Database("nft_raffle_db").Collection(collectionName)
 	return collection
 }

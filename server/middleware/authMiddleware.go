@@ -25,9 +25,19 @@ func NewAuthMiddleware() AuthMiddleware {
 
 func (a *authMiddlewareStruct) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		clientAccessToken := strings.Split(c.Request.Header.Get("Authorization"), " ")[1]
+		authorizationHeader := strings.Split(c.Request.Header.Get("Authorization"), " ")
+
+		if len(authorizationHeader) < 2 {
+			log.Println("no authorization header provided")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No authorization header provided"})
+			c.Abort()
+			return
+		}
+
+		clientAccessToken := authorizationHeader[1]
 
 		if clientAccessToken == "" {
+			log.Println("no authorization header provided")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "No authorization header provided"})
 			c.Abort()
 			return
@@ -40,6 +50,27 @@ func (a *authMiddlewareStruct) Authenticate() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			c.Abort()
 			return
+		}
+
+		// check Access Token blacklist
+		blacklistAccessTokenExpiration, err := tokenHelper.GetBlacklistAccessTokenUserId(claims.Uid)
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.Abort()
+			return
+		}
+
+		// found in JWT blacklist
+		if blacklistAccessTokenExpiration >= 0 {
+			if claims.ExpiresAt < blacklistAccessTokenExpiration {
+				// forced logout
+				log.Println("access token has expired")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "access token has expired"})
+				c.Abort()
+				return
+			}
 		}
 
 		c.Set("uid", claims.Uid)

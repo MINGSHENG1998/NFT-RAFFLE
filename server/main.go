@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"nft-raffle/helpers"
 	"nft-raffle/routes"
 
@@ -12,6 +13,8 @@ var (
 )
 
 func main() {
+	log.SetPrefix("[LOG] ")
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Llongfile)
 	port := dotEnvHelper.GetEnvVariable("PORT")
 
 	if port == "" {

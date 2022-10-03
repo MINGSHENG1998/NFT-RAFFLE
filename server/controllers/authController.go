@@ -22,18 +22,23 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type AuthController interface {
 	SignUp() gin.HandlerFunc
 	Login() gin.HandlerFunc
 	RefreshToken() gin.HandlerFunc
+	ResetUserPassword() gin.HandlerFunc
+	TestRedis() gin.HandlerFunc
 }
 
 type authControllerStruct struct{}
 
 var (
-	userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+	nftRaffleDb       database.NftRaffleMongoDbConnection = database.NewNftRaffleMongoDbConnection()
+	nftRaffleDbClient *mongo.Client                       = nftRaffleDb.DBClient()
+	userCollection    *mongo.Collection                   = nftRaffleDb.OpenCollection(nftRaffleDbClient, "user")
 
 	tokenHelper          helpers.TokenHelper          = helpers.NewTokenHelper()
 	aesEncryptionHelper  helpers.AesEncrptionHelper   = helpers.NewAesEncryptionHelper()
@@ -42,8 +47,7 @@ var (
 	passwordHelper       helpers.PasswordHelper       = helpers.NewPasswordHelper()
 	dotEnvHelper         helpers.DotEnvHelper         = helpers.NewDotEnvHelper()
 
-	sendGridMailService     services.SendGridMailService     = services.NewSendGridMailService()
-	verificationMailService services.VerificationMailService = services.NewVerificationMailService()
+	sendGridMailService services.SendGridMailService = services.NewSendGridMailService()
 
 	verifcationCodeExpiration string = dotEnvHelper.GetEnvVariable("VERIFICATION_MAIL_CODE_EXPIRATION")
 	fromName                  string = dotEnvHelper.GetEnvVariable("SENDGRID_FROM_NAME")
@@ -174,7 +178,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		}
 
 		dynamicTemplateData := map[string]string{}
-		dynamicTemplateData["Last_Name"] = fmt.Sprintf("%s %s", user.First_name, user.Last_name)
+		dynamicTemplateData["Full_Name"] = fmt.Sprintf("%s %s", user.First_name, user.Last_name)
 		encryptedEmailValue, err := aesEncryptionHelper.AesGCMEncrypt(user.Email)
 
 		if err != nil {
@@ -192,7 +196,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		}
 
 		dynamicTemplateData["Verify_Mail_Link"] = fmt.Sprintf(
-			"%s/%s/api/test?email=%s&code=%s",
+			"%s:%s/api/test?email=%s&code=%s",
 			verifcationMailReturnHost, verifcationMailReturnPort, encryptedEmailValue, encryptedRandomSixDigits,
 		)
 
@@ -204,11 +208,10 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 			DynamicTemplateData: dynamicTemplateData,
 		}
 
-		go sendGridMailService.SendVerificationMailAsync(mailReq)
+		go sendGridMailService.SendMail(mailReq)
 
-		ctx2, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		mailCount, err := mailCollection.CountDocuments(
-			ctx2,
+			ctx,
 			bson.D{
 				{Key: "email", Value: user.Email},
 				{Key: "type", Value: enums.MailVerification.String()},
@@ -225,7 +228,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		if mailCount > 0 {
 			// update current verification mail
 			// update mail in db
-			mailUpdateError := verificationMailService.UpdateVerificationEmail(user.Email, randomSixDigits, expires_at)
+			mailUpdateError := sendGridMailService.UpdateEmail(enums.MailVerification, user.Email, randomSixDigits, expires_at)
 
 			if mailUpdateError != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
@@ -237,7 +240,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		} else {
 			// create new verification mail
 			// insert mail into db
-			mailInsertError := verificationMailService.CreateNewVerifcationMail(user.Email, randomSixDigits, expires_at)
+			mailInsertError := sendGridMailService.CreateNewMail(enums.MailVerification, user.Email, randomSixDigits, expires_at)
 
 			if mailInsertError != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
@@ -351,8 +354,27 @@ func (a *authControllerStruct) RefreshToken() gin.HandlerFunc {
 			return
 		}
 
+		// check JWT blacklist
 		uid := claims.Uid
 		var foundUser models.User
+
+		blacklistRefreshTokenExpiration, err := tokenHelper.GetBlacklistRefreshTokenUserId(uid)
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		// found in blacklist
+		if blacklistRefreshTokenExpiration >= 0 {
+			if claims.ExpiresAt < blacklistRefreshTokenExpiration {
+				// forced logout
+				log.Println("refresh token has expired")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "refresh token has expired"})
+				return
+			}
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 
@@ -397,5 +419,206 @@ func (a *authControllerStruct) RefreshToken() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, foundUser)
+	}
+}
+
+func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var passwordResetRequest dto.PasswordResetRequestDto
+
+		err := c.BindJSON(&passwordResetRequest)
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		validationError := validate.Struct(passwordResetRequest)
+
+		if validationError != nil {
+			log.Println(validationError)
+			c.JSON(http.StatusBadRequest, gin.H{"error": validationError.Error()})
+			return
+		}
+
+		if passwordResetRequest.Password != passwordResetRequest.ConfirmPassword {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "password and confirm password not matching"})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+		var passwordResetMail models.Mail
+		var user models.User
+
+		err = userCollection.FindOne(ctx, bson.M{"email": passwordResetRequest.Email}).Decode(&user)
+		defer cancel()
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		passwordMatchingErr := passwordHelper.VerifyPassword(user.Password, passwordResetRequest.Password)
+
+		// new password is same as old password
+		if passwordMatchingErr == nil {
+			log.Println("new password is same as old password")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "new password is same as old password"})
+			return
+		}
+
+		err = mailCollection.FindOne(ctx, bson.D{
+			{Key: "email", Value: passwordResetRequest.Email},
+			{Key: "type", Value: enums.PasswordReset.String()},
+		}).Decode(&passwordResetMail)
+		defer cancel()
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		// check code
+		if passwordResetRequest.Code != passwordResetMail.Code {
+			log.Println("password reset mail code not match")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "password reset mail code not match"})
+			return
+		}
+
+		var updateObj bson.D
+
+		hashedPassword, err := passwordHelper.HashPassword(passwordResetRequest.Password)
+
+		if err != nil {
+			log.Println(validationError)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": validationError.Error()})
+			return
+		}
+
+		updateObj = append(updateObj, bson.E{Key: "password", Value: hashedPassword})
+
+		Updated_at, err := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while parsing updated_at"})
+			return
+		}
+
+		updateObj = append(updateObj, bson.E{Key: "updated_at", Value: Updated_at})
+
+		upsert := true
+		filter := bson.M{"user_id": user.User_id}
+		opt := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+
+		err = nftRaffleDbClient.UseSession(ctx, func(sessionContext mongo.SessionContext) error {
+			err := sessionContext.StartTransaction()
+			if err != nil {
+				return err
+			}
+
+			_, err = userCollection.UpdateOne(
+				sessionContext,
+				filter,
+				bson.D{
+					{Key: "$set", Value: updateObj},
+				},
+				&opt,
+			)
+
+			if err != nil {
+				log.Println(err)
+				sessionContext.AbortTransaction(sessionContext)
+				return err
+			}
+
+			// now remove password reset mail from mailCollection
+			_, err = mailCollection.DeleteOne(sessionContext, bson.D{
+				{Key: "email", Value: passwordResetMail.Email},
+				{Key: "type", Value: enums.PasswordReset.String()},
+			})
+
+			if err != nil {
+				log.Println(err)
+				sessionContext.AbortTransaction(sessionContext)
+				return err
+			}
+
+			err = tokenHelper.SetBlacklistAccessAndRefreshTokenUserId(user.User_id)
+
+			if err != nil {
+				sessionContext.AbortTransaction(sessionContext)
+				return err
+			}
+
+			if err := sessionContext.CommitTransaction(sessionContext); err != nil {
+				return err
+			}
+
+			return nil
+		})
+		defer cancel()
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.Status(http.StatusOK)
+	}
+}
+
+func (a *authControllerStruct) TestRedis() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userId := "123124124"
+		err := tokenHelper.SetBlacklistAccessAndRefreshTokenUserId(userId)
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		blacklistAccessTokenExpiration, err := tokenHelper.GetBlacklistAccessTokenUserId(userId)
+
+		var blacklistAccessTokenExpirationStr string
+		if blacklistAccessTokenExpiration > 0 {
+			blacklistAccessTokenExpirationStr = strconv.Itoa(int(blacklistAccessTokenExpiration))
+		} else {
+			blacklistAccessTokenExpirationStr = "empty"
+		}
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		var blacklistRefreshTokenExpirationStr string
+		blacklistRefreshTokenExpiration, err := tokenHelper.GetBlacklistRefreshTokenUserId("11")
+
+		if blacklistRefreshTokenExpiration > 0 {
+			blacklistRefreshTokenExpirationStr = strconv.Itoa(int(blacklistRefreshTokenExpiration))
+		} else {
+			blacklistRefreshTokenExpirationStr = "empty"
+		}
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"blacklist_access_token_expiration":  blacklistAccessTokenExpirationStr,
+			"blacklist_refresh_token_expiration": blacklistRefreshTokenExpirationStr,
+		})
 	}
 }

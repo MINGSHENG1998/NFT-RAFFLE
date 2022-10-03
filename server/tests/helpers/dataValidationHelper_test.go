@@ -10,7 +10,7 @@ var (
 )
 
 func TestIsEmailValid(t *testing.T) {
-	email := "email@e.com"
+	email := "email@e"
 	err := dataValidationHelper.IsEmailValid(email)
 
 	if err != nil {
