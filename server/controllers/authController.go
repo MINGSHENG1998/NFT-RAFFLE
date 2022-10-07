@@ -449,17 +449,40 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 
-		var passwordResetMail models.Mail
-		var user models.User
+		userCh := make(chan models.User)
+		userErrCh := make(chan error)
 
-		err = userCollection.FindOne(ctx, bson.M{"email": passwordResetRequest.Email}).Decode(&user)
+		mailCh := make(chan models.Mail)
+		mailErrCh := make(chan error)
+
+		go func(email string) {
+			var u models.User
+			userErr := userCollection.FindOne(ctx, bson.M{"email": email}).Decode(&u)
+			userErrCh <- userErr
+			userCh <- u
+		}(passwordResetRequest.Email)
 		defer cancel()
+
+		go func(email, emailType string) {
+			var m models.Mail
+			mailErr := mailCollection.FindOne(ctx, bson.D{
+				{Key: "email", Value: passwordResetRequest.Email},
+				{Key: "type", Value: enums.PasswordReset.String()},
+			}).Decode(&m)
+			mailErrCh <- mailErr
+			mailCh <- m
+		}(passwordResetRequest.Email, enums.PasswordReset.String())
+		defer cancel()
+
+		err = <-userErrCh
 
 		if err != nil {
 			log.Println(err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
+		user := <-userCh
 
 		passwordMatchingErr := passwordHelper.VerifyPassword(user.Password, passwordResetRequest.Password)
 
@@ -470,17 +493,15 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 			return
 		}
 
-		err = mailCollection.FindOne(ctx, bson.D{
-			{Key: "email", Value: passwordResetRequest.Email},
-			{Key: "type", Value: enums.PasswordReset.String()},
-		}).Decode(&passwordResetMail)
-		defer cancel()
+		err = <-mailErrCh
 
 		if err != nil {
 			log.Println(err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
+		passwordResetMail := <-mailCh
 
 		// check code
 		if passwordResetRequest.Code != passwordResetMail.Code {
@@ -523,6 +544,13 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 				return err
 			}
 
+			redisTokenErrCh := make(chan error)
+
+			go func(userId string) {
+				redisTokenErr := tokenHelper.SetBlacklistAccessAndRefreshTokenUserId(user.User_id)
+				redisTokenErrCh <- redisTokenErr
+			}(user.User_id)
+
 			_, err = userCollection.UpdateOne(
 				sessionContext,
 				filter,
@@ -550,7 +578,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 				return err
 			}
 
-			err = tokenHelper.SetBlacklistAccessAndRefreshTokenUserId(user.User_id)
+			err = <-redisTokenErrCh
 
 			if err != nil {
 				sessionContext.AbortTransaction(sessionContext)
@@ -602,7 +630,7 @@ func (a *authControllerStruct) TestRedis() gin.HandlerFunc {
 		}
 
 		var blacklistRefreshTokenExpirationStr string
-		blacklistRefreshTokenExpiration, err := tokenHelper.GetBlacklistRefreshTokenUserId("11")
+		blacklistRefreshTokenExpiration, err := tokenHelper.GetBlacklistRefreshTokenUserId(userId)
 
 		if blacklistRefreshTokenExpiration > 0 {
 			blacklistRefreshTokenExpirationStr = strconv.Itoa(int(blacklistRefreshTokenExpiration))
