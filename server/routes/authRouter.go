@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	authController controllers.AuthController = controllers.NewAuthController()
-	authMiddleware middleware.AuthMiddleware  = middleware.NewAuthMiddleware()
+	authController controllers.IAuthController = controllers.AuthController
+	authMiddleware middleware.IAuthMiddleware  = middleware.AuthMiddleware
 )
 
 func AuthRoutes(superRoute *gin.RouterGroup) {

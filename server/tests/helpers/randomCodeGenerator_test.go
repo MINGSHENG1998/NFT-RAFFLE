@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	randomCodeGenerator helpers.RandomCodeGenerator = helpers.NewRandomCodeGenerator()
+	randomCodeGenerator helpers.IRandomCodeGenerator = helpers.RandomCodeGenerator
 )
 
 func TestGenerateRandomDigits(t *testing.T) {

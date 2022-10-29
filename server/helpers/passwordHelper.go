@@ -2,14 +2,16 @@ package helpers
 
 import "golang.org/x/crypto/bcrypt"
 
-type PasswordHelper interface {
+var PasswordHelper IPasswordHelper = NewPasswordHelper()
+
+type IPasswordHelper interface {
 	HashPassword(password string) (string, error)
 	VerifyPassword(hashedPassword, userPassword string) error
 }
 
 type passwordHelperStruct struct{}
 
-func NewPasswordHelper() PasswordHelper {
+func NewPasswordHelper() IPasswordHelper {
 	return &passwordHelperStruct{}
 }
 

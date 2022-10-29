@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	dataValidationHelper helpers.DataValidationHelper = helpers.NewDataValidationHelper()
+	dataValidationHelper helpers.IDataValidationHelper = helpers.DataValidationHelper
 )
 
 func TestIsEmailValid(t *testing.T) {

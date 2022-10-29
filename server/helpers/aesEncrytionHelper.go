@@ -9,18 +9,20 @@ import (
 	"io"
 )
 
-type AesEncrptionHelper interface {
+var (
+	AesEncryptionHelper IAesEncrptionHelper = NewAesEncryptionHelper()
+
+	secret_key string = DotEnvHelper.GetEnvVariable("AES_ENCRYTION_KEY")
+)
+
+type IAesEncrptionHelper interface {
 	AesGCMEncrypt(text string) (string, error)
 	AesGCMDecrypt(text string) (string, error)
 }
 
 type aesEncrytionHelperStruct struct{}
 
-var (
-	secret_key string = dotEnvHelperImpl.GetEnvVariable("AES_ENCRYTION_KEY")
-)
-
-func NewAesEncryptionHelper() AesEncrptionHelper {
+func NewAesEncryptionHelper() IAesEncrptionHelper {
 	return &aesEncrytionHelperStruct{}
 }
 

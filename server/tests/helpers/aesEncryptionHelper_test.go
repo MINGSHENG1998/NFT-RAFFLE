@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	aesEncryptionHelper helpers.AesEncrptionHelper = helpers.NewAesEncryptionHelper()
+	aesEncryptionHelper helpers.IAesEncrptionHelper = helpers.AesEncryptionHelper
 )
 
 func TestAesGcmEncryptionDecryption(t *testing.T) {

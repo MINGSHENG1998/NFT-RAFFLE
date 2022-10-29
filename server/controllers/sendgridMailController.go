@@ -18,15 +18,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type SendGridController interface {
-	VerifyVerificationMail() gin.HandlerFunc
-	SendPasswordResetMail() gin.HandlerFunc
-	VerifyPasswordResetMail() gin.HandlerFunc
-}
-
-type sendGridControllerStruct struct{}
-
 var (
+	SendGridController ISendGridController = NewSendGridController()
+
 	mailCollection *mongo.Collection = nftRaffleDb.OpenCollection(nftRaffleDbClient, "mail")
 
 	passwordResetMailCodeExpiration string = dotEnvHelper.GetEnvVariable("PASSWORD_RESET_MAIL_CODE_EXPIRATION")
@@ -34,7 +28,15 @@ var (
 	passwordResetMailReturnPort     string = dotEnvHelper.GetEnvVariable("PASSWORD_RESET_MAIL_RETURN_PORT")
 )
 
-func NewSendGridController() SendGridController {
+type ISendGridController interface {
+	VerifyVerificationMail() gin.HandlerFunc
+	SendPasswordResetMail() gin.HandlerFunc
+	VerifyPasswordResetMail() gin.HandlerFunc
+}
+
+type sendGridControllerStruct struct{}
+
+func NewSendGridController() ISendGridController {
 	return &sendGridControllerStruct{}
 }
 

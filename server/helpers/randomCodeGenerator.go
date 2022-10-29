@@ -6,15 +6,19 @@ import (
 	"time"
 )
 
-type RandomCodeGenerator interface {
+var (
+	RandomCodeGenerator IRandomCodeGenerator = NewRandomCodeGenerator()
+
+	digits = []rune("0123456789")
+)
+
+type IRandomCodeGenerator interface {
 	GenerateRandomDigits(length int) string
 }
 
 type randomCodeGeneratorStruct struct{}
 
-var digits = []rune("0123456789")
-
-func NewRandomCodeGenerator() RandomCodeGenerator {
+func NewRandomCodeGenerator() IRandomCodeGenerator {
 	return &randomCodeGeneratorStruct{}
 }
 

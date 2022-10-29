@@ -12,17 +12,21 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var NftRaffleDbClient *mongo.Client = DBClient()
+var (
+	NftRaffleMongoDbConnection INftRaffleMongoDbConnection = NewNftRaffleMongoDbConnection()
+
+	NftRaffleDbClient *mongo.Client = DBClient()
+)
 
 const projectDirName = "server"
 
-type NftRaffleMongoDbConnection interface {
+type INftRaffleMongoDbConnection interface {
 	OpenCollection(client *mongo.Client, collectionName string) *mongo.Collection
 }
 
 type nftRaffleMongoDbConnectionStruct struct{}
 
-func NewNftRaffleMongoDbConnection() NftRaffleMongoDbConnection {
+func NewNftRaffleMongoDbConnection() INftRaffleMongoDbConnection {
 	return &nftRaffleMongoDbConnectionStruct{}
 }
 

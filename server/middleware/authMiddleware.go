@@ -9,17 +9,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type AuthMiddleware interface {
+var (
+	AuthMiddleware IAuthMiddleware = NewAuthMiddleware()
+
+	tokenHelper helpers.ITokenHelper = helpers.TokenHelper
+)
+
+type IAuthMiddleware interface {
 	Authenticate() gin.HandlerFunc
 }
 
 type authMiddlewareStruct struct{}
 
-var (
-	tokenHelper helpers.TokenHelper = helpers.NewTokenHelper()
-)
-
-func NewAuthMiddleware() AuthMiddleware {
+func NewAuthMiddleware() IAuthMiddleware {
 	return &authMiddlewareStruct{}
 }
 

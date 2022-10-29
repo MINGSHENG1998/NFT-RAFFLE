@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	sendGridController controllers.SendGridController = controllers.NewSendGridController()
+	sendGridController controllers.ISendGridController = controllers.SendGridController
 )
 
 func SendGridMailRoutes(superRoute *gin.RouterGroup) {

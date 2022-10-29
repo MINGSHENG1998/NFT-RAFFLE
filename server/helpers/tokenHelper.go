@@ -15,7 +15,27 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type TokenHelper interface {
+const (
+	blacklistAccessToken  string = "blacklist_access_token"
+	blacklistRefreshToken string = "blacklist_refresh_token"
+)
+
+var (
+	TokenHelper ITokenHelper = NewTokenHelper()
+
+	nftRaffleDbClient *mongo.Client                        = database.NftRaffleDbClient
+	nftRaffleDb       database.INftRaffleMongoDbConnection = database.NftRaffleMongoDbConnection
+	userCollection    *mongo.Collection                    = nftRaffleDb.OpenCollection(nftRaffleDbClient, "user")
+
+	redisClient = database.RedisClient
+
+	accessTokenSecretKey  = DotEnvHelper.GetEnvVariable("MY_ACCESS_TOKEN_SECRET_KEY")
+	refreshTokenSecretKey = DotEnvHelper.GetEnvVariable("MY_REFRESH_TOKEN_SECRET_KEY")
+	accessTokenTTL        = DotEnvHelper.GetEnvVariable("ACCESS_TOKEN_TTL")
+	refreshTokenTTL       = DotEnvHelper.GetEnvVariable("REFRESH_TOKEN_TTL")
+)
+
+type ITokenHelper interface {
 	GenerateAllTokens(email, firstName, lastName, uid, userRole string, is_email_verified bool) (signedToken, signedRefreshToken string, err error)
 	UpdateAllTokens(signedToken, signedRefreshToken, userId string) error
 	ValidateAccessToken(signedToken string) (claims *SignedDetails, err error)
@@ -28,6 +48,7 @@ type TokenHelper interface {
 }
 
 type tokenHelperStruct struct{}
+
 type SignedDetails struct {
 	Email             string
 	First_name        string
@@ -38,25 +59,7 @@ type SignedDetails struct {
 	jwt.StandardClaims
 }
 
-const (
-	blacklistAccessToken  string = "blacklist_access_token"
-	blacklistRefreshToken string = "blacklist_refresh_token"
-)
-
-var (
-	nftRaffleDbClient *mongo.Client                       = database.NftRaffleDbClient
-	nftRaffleDb       database.NftRaffleMongoDbConnection = database.NewNftRaffleMongoDbConnection()
-	userCollection    *mongo.Collection                   = nftRaffleDb.OpenCollection(nftRaffleDbClient, "user")
-
-	redisClient = database.RedisClient
-
-	accessTokenSecretKey  = dotEnvHelperImpl.GetEnvVariable("MY_ACCESS_TOKEN_SECRET_KEY")
-	refreshTokenSecretKey = dotEnvHelperImpl.GetEnvVariable("MY_REFRESH_TOKEN_SECRET_KEY")
-	accessTokenTTL        = dotEnvHelperImpl.GetEnvVariable("ACCESS_TOKEN_TTL")
-	refreshTokenTTL       = dotEnvHelperImpl.GetEnvVariable("REFRESH_TOKEN_TTL")
-)
-
-func NewTokenHelper() TokenHelper {
+func NewTokenHelper() ITokenHelper {
 	return &tokenHelperStruct{}
 }
 

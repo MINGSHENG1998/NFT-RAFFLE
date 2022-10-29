@@ -8,17 +8,17 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type DotEnvHelper interface {
+const projectDirName = "server"
+
+var DotEnvHelper IDotEnvHelper = NewDotEnvHelper()
+
+type IDotEnvHelper interface {
 	GetEnvVariable(key string) string
 }
 
 type dotEnvHelperStruct struct{}
 
-const projectDirName = "server"
-
-var dotEnvHelperImpl DotEnvHelper = NewDotEnvHelper()
-
-func NewDotEnvHelper() DotEnvHelper {
+func NewDotEnvHelper() IDotEnvHelper {
 	return &dotEnvHelperStruct{}
 }
 

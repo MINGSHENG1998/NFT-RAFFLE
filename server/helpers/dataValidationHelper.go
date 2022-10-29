@@ -4,13 +4,15 @@ import (
 	"net/mail"
 )
 
-type DataValidationHelper interface {
+var DataValidationHelper IDataValidationHelper = NewDataValidationHelper()
+
+type IDataValidationHelper interface {
 	IsEmailValid(email string) error
 }
 
 type dataValidationHelperStruct struct{}
 
-func NewDataValidationHelper() DataValidationHelper {
+func NewDataValidationHelper() IDataValidationHelper {
 	return &dataValidationHelperStruct{}
 }
 

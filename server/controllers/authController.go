@@ -25,29 +25,21 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type AuthController interface {
-	SignUp() gin.HandlerFunc
-	Login() gin.HandlerFunc
-	RefreshToken() gin.HandlerFunc
-	ResetUserPassword() gin.HandlerFunc
-	TestRedis() gin.HandlerFunc
-}
-
-type authControllerStruct struct{}
-
 var (
-	nftRaffleDbClient *mongo.Client                       = database.NftRaffleDbClient
-	nftRaffleDb       database.NftRaffleMongoDbConnection = database.NewNftRaffleMongoDbConnection()
-	userCollection    *mongo.Collection                   = nftRaffleDb.OpenCollection(nftRaffleDbClient, "user")
+	AuthController IAuthController = NewAuthController()
 
-	tokenHelper          helpers.TokenHelper          = helpers.NewTokenHelper()
-	aesEncryptionHelper  helpers.AesEncrptionHelper   = helpers.NewAesEncryptionHelper()
-	randomCodeGenerator  helpers.RandomCodeGenerator  = helpers.NewRandomCodeGenerator()
-	dataValidationHelper helpers.DataValidationHelper = helpers.NewDataValidationHelper()
-	passwordHelper       helpers.PasswordHelper       = helpers.NewPasswordHelper()
-	dotEnvHelper         helpers.DotEnvHelper         = helpers.NewDotEnvHelper()
+	nftRaffleDbClient *mongo.Client                        = database.NftRaffleDbClient
+	nftRaffleDb       database.INftRaffleMongoDbConnection = database.NftRaffleMongoDbConnection
+	userCollection    *mongo.Collection                    = nftRaffleDb.OpenCollection(nftRaffleDbClient, "user")
 
-	sendGridMailService services.SendGridMailService = services.NewSendGridMailService()
+	tokenHelper          helpers.ITokenHelper          = helpers.TokenHelper
+	aesEncryptionHelper  helpers.IAesEncrptionHelper   = helpers.AesEncryptionHelper
+	randomCodeGenerator  helpers.IRandomCodeGenerator  = helpers.RandomCodeGenerator
+	dataValidationHelper helpers.IDataValidationHelper = helpers.DataValidationHelper
+	passwordHelper       helpers.IPasswordHelper       = helpers.PasswordHelper
+	dotEnvHelper         helpers.IDotEnvHelper         = helpers.DotEnvHelper
+
+	sendGridMailService services.ISendGridMailService = services.SendGridMailService
 
 	verifcationCodeExpiration string = dotEnvHelper.GetEnvVariable("VERIFICATION_MAIL_CODE_EXPIRATION")
 	fromName                  string = dotEnvHelper.GetEnvVariable("SENDGRID_FROM_NAME")
@@ -58,7 +50,17 @@ var (
 	validate = validator.New()
 )
 
-func NewAuthController() AuthController {
+type IAuthController interface {
+	SignUp() gin.HandlerFunc
+	Login() gin.HandlerFunc
+	RefreshToken() gin.HandlerFunc
+	ResetUserPassword() gin.HandlerFunc
+	TestRedis() gin.HandlerFunc
+}
+
+type authControllerStruct struct{}
+
+func NewAuthController() IAuthController {
 	return &authControllerStruct{}
 }
 
@@ -440,6 +442,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 		}
 
 		if passwordResetRequest.Password != passwordResetRequest.ConfirmPassword {
+			logger.Logger.Error("password and confirm password not matching")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "password and confirm password not matching"})
 			return
 		}

@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	dotEnvHelper helpers.DotEnvHelper = helpers.NewDotEnvHelper()
+	dotEnvHelper helpers.IDotEnvHelper = helpers.DotEnvHelper
 )
 
 func init() {

@@ -19,7 +19,23 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type SendGridMailService interface {
+var (
+	SendGridMailService ISendGridMailService = NewSendGridMailService()
+
+	nftRaffleDbClient *mongo.Client                        = database.NftRaffleDbClient
+	nftRaffleDb       database.INftRaffleMongoDbConnection = database.NftRaffleMongoDbConnection
+	mailCollection    *mongo.Collection                    = nftRaffleDb.OpenCollection(nftRaffleDbClient, "mail")
+
+	dotEnvHelper helpers.IDotEnvHelper = helpers.DotEnvHelper
+
+	sendgridMailVerificationDynamicTemplateId  string = dotEnvHelper.GetEnvVariable("SENDGRID_MAIL_VERIFICATION_DYNAMIC_TEMPLATE_ID")
+	sendgridMailPasswordResetDynamicTemplateId string = dotEnvHelper.GetEnvVariable("SENDGRID_MAIL_PASSWORD_RESET_DYNAMIC_TEMPLATE_ID")
+	sendgridApiKey                             string = dotEnvHelper.GetEnvVariable("SENDGRID_API_KEY")
+	sendgridApiEndPoint                        string = dotEnvHelper.GetEnvVariable("SENDGRID_API_ENDPOINT")
+	sendgridApiHost                            string = dotEnvHelper.GetEnvVariable("SENDGRID_API_HOST")
+)
+
+type ISendGridMailService interface {
 	SendMailAsync(body []byte) (chan *rest.Response, chan error)
 	DynamicTemplate(mailRequest *dto.MailRequest) []byte
 	SendMail(mailRequest *dto.MailRequest)
@@ -29,21 +45,7 @@ type SendGridMailService interface {
 
 type sendGridMailServiceStruct struct{}
 
-var (
-	nftRaffleDbClient *mongo.Client                       = database.NftRaffleDbClient
-	nftRaffleDb       database.NftRaffleMongoDbConnection = database.NewNftRaffleMongoDbConnection()
-	mailCollection    *mongo.Collection                   = nftRaffleDb.OpenCollection(nftRaffleDbClient, "mail")
-
-	dotEnvHelper helpers.DotEnvHelper = helpers.NewDotEnvHelper()
-
-	sendgridMailVerificationDynamicTemplateId  string = dotEnvHelper.GetEnvVariable("SENDGRID_MAIL_VERIFICATION_DYNAMIC_TEMPLATE_ID")
-	sendgridMailPasswordResetDynamicTemplateId string = dotEnvHelper.GetEnvVariable("SENDGRID_MAIL_PASSWORD_RESET_DYNAMIC_TEMPLATE_ID")
-	sendgridApiKey                             string = dotEnvHelper.GetEnvVariable("SENDGRID_API_KEY")
-	sendgridApiEndPoint                        string = dotEnvHelper.GetEnvVariable("SENDGRID_API_ENDPOINT")
-	sendgridApiHost                            string = dotEnvHelper.GetEnvVariable("SENDGRID_API_HOST")
-)
-
-func NewSendGridMailService() SendGridMailService {
+func NewSendGridMailService() ISendGridMailService {
 	return &sendGridMailServiceStruct{}
 }
 
