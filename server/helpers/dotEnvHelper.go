@@ -1,7 +1,7 @@
 package helpers
 
 import (
-	"log"
+	"nft-raffle/logger"
 	"os"
 	"regexp"
 
@@ -29,7 +29,7 @@ func (d *dotEnvHelperStruct) GetEnvVariable(key string) string {
 	err := godotenv.Load(string(rootPath) + `/.env`)
 
 	if err != nil {
-		log.Fatal("Error loading .env file in dotEnvHelper.go ", err.Error())
+		logger.Logger.Fatal("Error loading .env file in dotEnvHelper.go " + err.Error())
 	}
 
 	return os.Getenv(key)

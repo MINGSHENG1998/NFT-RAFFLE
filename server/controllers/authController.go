@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"nft-raffle/database"
 	"nft-raffle/dto"
 	"nft-raffle/enums"
 	"nft-raffle/helpers"
+	"nft-raffle/logger"
 	"nft-raffle/models"
 	"nft-raffle/services"
 	"strconv"
@@ -36,8 +36,8 @@ type AuthController interface {
 type authControllerStruct struct{}
 
 var (
+	nftRaffleDbClient *mongo.Client                       = database.NftRaffleDbClient
 	nftRaffleDb       database.NftRaffleMongoDbConnection = database.NewNftRaffleMongoDbConnection()
-	nftRaffleDbClient *mongo.Client                       = nftRaffleDb.DBClient()
 	userCollection    *mongo.Collection                   = nftRaffleDb.OpenCollection(nftRaffleDbClient, "user")
 
 	tokenHelper          helpers.TokenHelper          = helpers.NewTokenHelper()
@@ -67,31 +67,31 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		var user models.User
 
 		if err := c.BindJSON(&user); err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		validationErr := validate.Struct(user)
 		if validationErr != nil {
-			log.Println(validationErr)
+			logger.Logger.Error(validationErr.Error())
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
 
 		if emailValidationErr := dataValidationHelper.IsEmailValid(user.Email); emailValidationErr != nil {
-			log.Println(emailValidationErr)
+			logger.Logger.Error(emailValidationErr.Error())
 			c.JSON(http.StatusBadRequest, gin.H{"error": emailValidationErr.Error()})
 			return
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-
-		emailCount, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
 		defer cancel()
 
+		emailCount, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
+
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -104,7 +104,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		hashedPassword, err := passwordHelper.HashPassword(user.Password)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -114,7 +114,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		user.Created_at, err = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while parsing created_at"})
 			return
 		}
@@ -122,7 +122,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		user.Updated_at, err = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while parsing updated_at"})
 			return
 		}
@@ -136,7 +136,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 			user.Email, user.First_name, user.Last_name, user.User_id, user.User_role, user.Is_email_verified)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -145,10 +145,9 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		user.Refresh_token = signedRefreshToken
 
 		resultInsertionNumber, insertError := userCollection.InsertOne(ctx, user)
-		defer cancel()
 
 		if insertError != nil {
-			log.Println(insertError)
+			logger.Logger.Error(insertError.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": insertError})
 			return
 		}
@@ -158,7 +157,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		verifcationCodeExpirationInt, err := strconv.ParseInt(verifcationCodeExpiration, 10, 64)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -166,7 +165,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		expires_at, err := time.Parse(time.RFC3339, time.Now().Local().Add(time.Hour*time.Duration(verifcationCodeExpirationInt)).Format(time.RFC3339))
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while parsing mail expires_at"})
 			return
 		}
@@ -182,7 +181,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		encryptedEmailValue, err := aesEncryptionHelper.AesGCMEncrypt(user.Email)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while encrypting user email"})
 			return
 		}
@@ -190,7 +189,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 		encryptedRandomSixDigits, err := aesEncryptionHelper.AesGCMEncrypt(randomSixDigits)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while encrypting random six digits"})
 			return
 		}
@@ -217,10 +216,9 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 				{Key: "type", Value: enums.MailVerification.String()},
 			},
 		)
-		defer cancel()
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while counting mail from mail collection in db"})
 			return
 		}
@@ -261,18 +259,18 @@ func (a *authControllerStruct) Login() gin.HandlerFunc {
 		var foundUser models.User
 
 		if err := c.BindJSON(&user); err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-
-		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
 		defer cancel()
 
+		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "email or password is incorrect"})
 			return
 		}
@@ -280,7 +278,7 @@ func (a *authControllerStruct) Login() gin.HandlerFunc {
 		passwordValidationError := passwordHelper.VerifyPassword(foundUser.Password, user.Password)
 
 		if passwordValidationError != nil {
-			log.Println(passwordValidationError)
+			logger.Logger.Error(passwordValidationError.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "email or password is incorrect"})
 			return
 		}
@@ -294,7 +292,7 @@ func (a *authControllerStruct) Login() gin.HandlerFunc {
 			foundUser.Email, foundUser.First_name, foundUser.Last_name, foundUser.User_id, foundUser.User_role, foundUser.Is_email_verified)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -302,20 +300,20 @@ func (a *authControllerStruct) Login() gin.HandlerFunc {
 		err = tokenHelper.UpdateAllTokens(signedToken, signedRefreshToken, foundUser.User_id)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		err = userCollection.FindOne(ctx, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
-		defer cancel()
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
+		// logger.Logger.Debug("Found User", zap.Any("founduser", &foundUser))
 		c.JSON(http.StatusOK, foundUser)
 	}
 }
@@ -327,13 +325,13 @@ func (a *authControllerStruct) RefreshToken() gin.HandlerFunc {
 		jsonData, err := io.ReadAll(c.Request.Body)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		if err := json.Unmarshal(jsonData, &requestBody); err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -341,7 +339,7 @@ func (a *authControllerStruct) RefreshToken() gin.HandlerFunc {
 		signedRefreshToken, ok := requestBody["refresh_token"].(string)
 
 		if !ok {
-			log.Println("invalid refresh token")
+			logger.Logger.Error("invalid refresh token")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid refresh token"})
 			return
 		}
@@ -349,7 +347,7 @@ func (a *authControllerStruct) RefreshToken() gin.HandlerFunc {
 		claims, err := tokenHelper.ValidateRefreshToken(signedRefreshToken)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -361,7 +359,7 @@ func (a *authControllerStruct) RefreshToken() gin.HandlerFunc {
 		blacklistRefreshTokenExpiration, err := tokenHelper.GetBlacklistRefreshTokenUserId(uid)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -370,19 +368,19 @@ func (a *authControllerStruct) RefreshToken() gin.HandlerFunc {
 		if blacklistRefreshTokenExpiration >= 0 {
 			if claims.ExpiresAt < blacklistRefreshTokenExpiration {
 				// forced logout
-				log.Println("refresh token has expired")
+				logger.Logger.Error("refresh token has expired")
 				c.JSON(http.StatusBadRequest, gin.H{"error": "refresh token has expired"})
 				return
 			}
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-
-		err = userCollection.FindOne(ctx, bson.M{"user_id": uid}).Decode(&foundUser)
 		defer cancel()
 
+		err = userCollection.FindOne(ctx, bson.M{"user_id": uid}).Decode(&foundUser)
+
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -396,7 +394,7 @@ func (a *authControllerStruct) RefreshToken() gin.HandlerFunc {
 			foundUser.Email, foundUser.First_name, foundUser.Last_name, foundUser.User_id, foundUser.User_role, foundUser.Is_email_verified)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -404,16 +402,15 @@ func (a *authControllerStruct) RefreshToken() gin.HandlerFunc {
 		err = tokenHelper.UpdateAllTokens(signedToken, signedRefreshToken, foundUser.User_id)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		err = userCollection.FindOne(ctx, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
-		defer cancel()
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -429,7 +426,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 		err := c.BindJSON(&passwordResetRequest)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -437,7 +434,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 		validationError := validate.Struct(passwordResetRequest)
 
 		if validationError != nil {
-			log.Println(validationError)
+			logger.Logger.Error(validationError.Error())
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationError.Error()})
 			return
 		}
@@ -448,6 +445,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
 
 		userCh := make(chan models.User)
 		userErrCh := make(chan error)
@@ -461,7 +459,6 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 			userErrCh <- userErr
 			userCh <- u
 		}(passwordResetRequest.Email)
-		defer cancel()
 
 		go func(email, emailType string) {
 			var m models.Mail
@@ -472,12 +469,11 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 			mailErrCh <- mailErr
 			mailCh <- m
 		}(passwordResetRequest.Email, enums.PasswordReset.String())
-		defer cancel()
 
 		err = <-userErrCh
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -488,7 +484,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 
 		// new password is same as old password
 		if passwordMatchingErr == nil {
-			log.Println("new password is same as old password")
+			logger.Logger.Error("new password is same as old password")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "new password is same as old password"})
 			return
 		}
@@ -496,7 +492,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 		err = <-mailErrCh
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -505,7 +501,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 
 		// check code
 		if passwordResetRequest.Code != passwordResetMail.Code {
-			log.Println("password reset mail code not match")
+			logger.Logger.Error("password reset mail code not match")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "password reset mail code not match"})
 			return
 		}
@@ -515,7 +511,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 		hashedPassword, err := passwordHelper.HashPassword(passwordResetRequest.Password)
 
 		if err != nil {
-			log.Println(validationError)
+			logger.Logger.Error(validationError.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": validationError.Error()})
 			return
 		}
@@ -525,7 +521,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 		Updated_at, err := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while parsing updated_at"})
 			return
 		}
@@ -561,7 +557,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 			)
 
 			if err != nil {
-				log.Println(err)
+				logger.Logger.Error(err.Error())
 				sessionContext.AbortTransaction(sessionContext)
 				return err
 			}
@@ -573,7 +569,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 			})
 
 			if err != nil {
-				log.Println(err)
+				logger.Logger.Error(err.Error())
 				sessionContext.AbortTransaction(sessionContext)
 				return err
 			}
@@ -591,10 +587,9 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 
 			return nil
 		})
-		defer cancel()
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -609,7 +604,7 @@ func (a *authControllerStruct) TestRedis() gin.HandlerFunc {
 		err := tokenHelper.SetBlacklistAccessAndRefreshTokenUserId(userId)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -624,7 +619,7 @@ func (a *authControllerStruct) TestRedis() gin.HandlerFunc {
 		}
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -639,7 +634,7 @@ func (a *authControllerStruct) TestRedis() gin.HandlerFunc {
 		}
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

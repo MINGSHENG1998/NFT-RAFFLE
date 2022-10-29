@@ -11,12 +11,15 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
+	go.uber.org/atomic v1.10.0 // indirect
+	go.uber.org/multierr v1.8.0 // indirect
+	go.uber.org/zap v1.23.0 // indirect
 )
 
 require (
 	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/klauspost/compress v1.15.11 // indirect
+	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/montanaflynn/stats v0.6.6 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -25,9 +28,9 @@ require (
 	github.com/xdg-go/scram v1.1.1 // indirect
 	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
-	golang.org/x/net v0.0.0-20221002022538-bcab6841153b // indirect
-	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 )
 
@@ -44,8 +47,8 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/sendgrid/sendgrid-go v3.12.0+incompatible
 	github.com/ugorji/go/codec v1.2.7 // indirect
-	go.mongodb.org/mongo-driver v1.10.2
-	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
-	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec // indirect
+	go.mongodb.org/mongo-driver v1.10.3
+	golang.org/x/crypto v0.1.0
+	golang.org/x/sys v0.1.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

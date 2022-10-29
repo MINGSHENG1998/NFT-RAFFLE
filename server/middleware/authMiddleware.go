@@ -1,9 +1,9 @@
 package middleware
 
 import (
-	"log"
 	"net/http"
 	"nft-raffle/helpers"
+	"nft-raffle/logger"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -28,7 +28,7 @@ func (a *authMiddlewareStruct) Authenticate() gin.HandlerFunc {
 		authorizationHeader := strings.Split(c.Request.Header.Get("Authorization"), " ")
 
 		if len(authorizationHeader) < 2 {
-			log.Println("no authorization header provided")
+			logger.Logger.Error("no authorization header provided")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "No authorization header provided"})
 			c.Abort()
 			return
@@ -37,7 +37,7 @@ func (a *authMiddlewareStruct) Authenticate() gin.HandlerFunc {
 		clientAccessToken := authorizationHeader[1]
 
 		if clientAccessToken == "" {
-			log.Println("no authorization header provided")
+			logger.Logger.Error("no authorization header provided")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "No authorization header provided"})
 			c.Abort()
 			return
@@ -46,7 +46,7 @@ func (a *authMiddlewareStruct) Authenticate() gin.HandlerFunc {
 		claims, err := tokenHelper.ValidateAccessToken(clientAccessToken)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			c.Abort()
 			return
@@ -56,7 +56,7 @@ func (a *authMiddlewareStruct) Authenticate() gin.HandlerFunc {
 		blacklistAccessTokenExpiration, err := tokenHelper.GetBlacklistAccessTokenUserId(claims.Uid)
 
 		if err != nil {
-			log.Println(err)
+			logger.Logger.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			c.Abort()
 			return
@@ -66,7 +66,7 @@ func (a *authMiddlewareStruct) Authenticate() gin.HandlerFunc {
 		if blacklistAccessTokenExpiration >= 0 {
 			if claims.ExpiresAt < blacklistAccessTokenExpiration {
 				// forced logout
-				log.Println("access token has expired")
+				logger.Logger.Error("access token has expired")
 				c.JSON(http.StatusBadRequest, gin.H{"error": "access token has expired"})
 				c.Abort()
 				return

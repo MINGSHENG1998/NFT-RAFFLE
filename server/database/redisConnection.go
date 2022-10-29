@@ -2,7 +2,7 @@ package database
 
 import (
 	"fmt"
-	"log"
+	"nft-raffle/logger"
 	"os"
 	"regexp"
 
@@ -10,24 +10,16 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type RedisConnection interface {
-	RedisClient() *redis.Client
-}
+var RedisClient *redis.Client = RedisClientInstance()
 
-type redisConnectionStruct struct{}
-
-func NewRedisConenction() RedisConnection {
-	return &redisConnectionStruct{}
-}
-
-func (r *redisConnectionStruct) RedisClient() *redis.Client {
+func RedisClientInstance() *redis.Client {
 	projectName := regexp.MustCompile(`^(.*` + projectDirName + `)`)
 	currentWorkDirectory, _ := os.Getwd()
 	rootPath := projectName.Find([]byte(currentWorkDirectory))
 	err := godotenv.Load(string(rootPath) + `/.env`)
 
 	if err != nil {
-		log.Fatal("Error loading .env file in databaseConnection.go ", err.Error())
+		logger.Logger.Fatal("Error loading .env file in databaseConnection.go " + err.Error())
 	}
 
 	redisHost := os.Getenv("REDIS_HOST")

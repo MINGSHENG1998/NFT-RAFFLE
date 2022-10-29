@@ -12,9 +12,12 @@ var (
 	dotEnvHelper helpers.DotEnvHelper = helpers.NewDotEnvHelper()
 )
 
-func main() {
+func init() {
 	log.SetPrefix("[LOG] ")
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Llongfile)
+}
+
+func main() {
 	port := dotEnvHelper.GetEnvVariable("PORT")
 
 	if port == "" {

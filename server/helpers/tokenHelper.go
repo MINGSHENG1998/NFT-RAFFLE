@@ -44,12 +44,11 @@ const (
 )
 
 var (
+	nftRaffleDbClient *mongo.Client                       = database.NftRaffleDbClient
 	nftRaffleDb       database.NftRaffleMongoDbConnection = database.NewNftRaffleMongoDbConnection()
-	nftRaffleDbClient *mongo.Client                       = nftRaffleDb.DBClient()
 	userCollection    *mongo.Collection                   = nftRaffleDb.OpenCollection(nftRaffleDbClient, "user")
 
-	redisDb     database.RedisConnection = database.NewRedisConenction()
-	redisClient                          = redisDb.RedisClient()
+	redisClient = database.RedisClient
 
 	accessTokenSecretKey  = dotEnvHelperImpl.GetEnvVariable("MY_ACCESS_TOKEN_SECRET_KEY")
 	refreshTokenSecretKey = dotEnvHelperImpl.GetEnvVariable("MY_REFRESH_TOKEN_SECRET_KEY")
@@ -133,6 +132,7 @@ func (t *tokenHelperStruct) UpdateAllTokens(signedToken, signedRefreshToken, use
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	_, updateError := userCollection.UpdateOne(
 		ctx,
@@ -142,7 +142,6 @@ func (t *tokenHelperStruct) UpdateAllTokens(signedToken, signedRefreshToken, use
 		},
 		&opt,
 	)
-	defer cancel()
 
 	if updateError != nil {
 		return updateError
@@ -214,9 +213,9 @@ func (t *tokenHelperStruct) SetBlacklistAccessTokenUserId(userId string) error {
 	val := time.Now().Local().Add(time.Hour * time.Duration(accessTokenTTLHoursInt)).Unix()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	err = redisClient.Set(ctx, key, val, time.Hour*time.Duration(accessTokenTTLHoursInt)).Err()
-	defer cancel()
 
 	if err != nil {
 		return err
@@ -236,9 +235,9 @@ func (t *tokenHelperStruct) SetBlacklistRefreshTokenUserId(userId string) error 
 	val := time.Now().Local().Add(time.Hour * time.Duration(refreshTokenTTLHoursInt)).Unix()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	err = redisClient.Set(ctx, key, val, time.Hour*time.Duration(refreshTokenTTLHoursInt)).Err()
-	defer cancel()
 
 	if err != nil {
 		return err
@@ -267,17 +266,14 @@ func (t *tokenHelperStruct) SetBlacklistAccessAndRefreshTokenUserId(userId strin
 	blacklistRefreshTokenVal := time.Now().Local().Add(time.Hour * time.Duration(refreshTokenTTLHoursInt)).Unix()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	pipe := redisClient.TxPipeline()
 
 	pipe.Set(ctx, blacklistAccessTokenKey, blacklistAccessTokenVal, time.Hour*time.Duration(accessTokenTTLHoursInt))
-	defer cancel()
-
 	pipe.Set(ctx, blacklistRefreshTokenKey, blacklistRefreshTokenVal, time.Hour*time.Duration(refreshTokenTTLHoursInt))
-	defer cancel()
 
 	_, err = pipe.Exec(ctx)
-	defer cancel()
 
 	if err != nil {
 		return err
@@ -290,9 +286,9 @@ func (t *tokenHelperStruct) GetBlacklistAccessTokenUserId(userId string) (int64,
 	key := fmt.Sprintf("%s:%s:%s", blacklistAccessToken, "user_id", userId)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	val, err := redisClient.Get(ctx, key).Result()
-	defer cancel()
 
 	if err == redis.Nil {
 		return -1, nil
@@ -313,9 +309,9 @@ func (t *tokenHelperStruct) GetBlacklistRefreshTokenUserId(userId string) (int64
 	key := fmt.Sprintf("%s:%s:%s", blacklistRefreshToken, "user_id", userId)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	val, err := redisClient.Get(ctx, key).Result()
-	defer cancel()
 
 	if err == redis.Nil {
 		return -1, nil

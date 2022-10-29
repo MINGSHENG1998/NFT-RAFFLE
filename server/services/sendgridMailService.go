@@ -2,11 +2,11 @@ package services
 
 import (
 	"context"
-	"log"
 	"nft-raffle/database"
 	"nft-raffle/dto"
 	"nft-raffle/enums"
 	"nft-raffle/helpers"
+	"nft-raffle/logger"
 	"nft-raffle/models"
 	"time"
 
@@ -30,8 +30,8 @@ type SendGridMailService interface {
 type sendGridMailServiceStruct struct{}
 
 var (
+	nftRaffleDbClient *mongo.Client                       = database.NftRaffleDbClient
 	nftRaffleDb       database.NftRaffleMongoDbConnection = database.NewNftRaffleMongoDbConnection()
-	nftRaffleDbClient *mongo.Client                       = nftRaffleDb.DBClient()
 	mailCollection    *mongo.Collection                   = nftRaffleDb.OpenCollection(nftRaffleDbClient, "mail")
 
 	dotEnvHelper helpers.DotEnvHelper = helpers.NewDotEnvHelper()
@@ -88,12 +88,12 @@ func (s *sendGridMailServiceStruct) SendMail(mailRequest *dto.MailRequest) {
 
 	select {
 	case err := <-errCh:
-		log.Println(err)
+		logger.Logger.Error(err.Error())
 	case response := <-responseCh:
 		// do nothing
 		_ = response
 		for _, val := range mailRequest.Tos {
-			log.Printf("%s mail for %s has been sent \n", mailRequest.MailType.String(), val.Address)
+			logger.Logger.Info(mailRequest.MailType.String() + " mail for " + val.Address + " has been sent ")
 		}
 	}
 }
@@ -111,25 +111,26 @@ func (s *sendGridMailServiceStruct) CreateNewMail(mailType enums.MailType, email
 	mail.Created_at, err = time.Parse(time.RFC3339, time.Now().Local().Format(time.RFC3339))
 
 	if err != nil {
-		log.Println(err)
+		logger.Logger.Error(err.Error())
 		return err
 	}
 
 	mail.Updated_at, err = time.Parse(time.RFC3339, time.Now().Local().Format(time.RFC3339))
 
 	if err != nil {
-		log.Println(err)
+		logger.Logger.Error(err.Error())
 		return err
 	}
 
 	mail.Expires_at = expires_at
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	_, insertError := mailCollection.InsertOne(ctx, mail)
 	defer cancel()
 
+	_, insertError := mailCollection.InsertOne(ctx, mail)
+
 	if insertError != nil {
-		log.Println(insertError)
+		logger.Logger.Error(insertError.Error())
 		return insertError
 	}
 
@@ -160,6 +161,7 @@ func (s *sendGridMailServiceStruct) UpdateEmail(mailType enums.MailType, email s
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	_, updateError := mailCollection.UpdateOne(
 		ctx,
@@ -169,7 +171,6 @@ func (s *sendGridMailServiceStruct) UpdateEmail(mailType enums.MailType, email s
 		},
 		&opt,
 	)
-	defer cancel()
 
 	if updateError != nil {
 		return updateError
