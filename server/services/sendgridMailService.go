@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"nft-raffle/database"
 	"nft-raffle/dto"
 	"nft-raffle/enums"
@@ -95,7 +96,7 @@ func (s *sendGridMailServiceStruct) SendMail(mailRequest *dto.MailRequest) {
 		// do nothing
 		_ = response
 		for _, val := range mailRequest.Tos {
-			logger.Logger.Info(mailRequest.MailType.String() + " mail for " + val.Address + " has been sent ")
+			logger.Logger.Info(fmt.Sprintf("%s mail for %s has been sent", mailRequest.MailType.String(), val.Address))
 		}
 	}
 }
