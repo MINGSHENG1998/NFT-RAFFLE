@@ -26,6 +26,7 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
 
 	routerGroup := router.Group("/api")
 	routes.AddRoutes(routerGroup)

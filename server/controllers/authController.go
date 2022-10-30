@@ -38,6 +38,7 @@ var (
 	dataValidationHelper helpers.IDataValidationHelper = helpers.DataValidationHelper
 	passwordHelper       helpers.IPasswordHelper       = helpers.PasswordHelper
 	dotEnvHelper         helpers.IDotEnvHelper         = helpers.DotEnvHelper
+	timeHelper           helpers.ITimeHelper           = helpers.TimeHelper
 
 	sendGridMailService services.ISendGridMailService = services.SendGridMailService
 
@@ -113,7 +114,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 
 		user.Password = hashedPassword
 
-		user.Created_at, err = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		user.Created_at, err = timeHelper.GetCurrentTimeSingapore()
 
 		if err != nil {
 			logger.Logger.Error(err.Error())
@@ -121,7 +122,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 			return
 		}
 
-		user.Updated_at, err = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		user.Updated_at, err = timeHelper.GetCurrentTimeSingapore()
 
 		if err != nil {
 			logger.Logger.Error(err.Error())
@@ -164,7 +165,7 @@ func (a *authControllerStruct) SignUp() gin.HandlerFunc {
 			return
 		}
 
-		expires_at, err := time.Parse(time.RFC3339, time.Now().Local().Add(time.Hour*time.Duration(verifcationCodeExpirationInt)).Format(time.RFC3339))
+		expires_at, err := timeHelper.GetCurrentTimeSingaporeWithAdditionalDuration(time.Hour * time.Duration(verifcationCodeExpirationInt))
 
 		if err != nil {
 			logger.Logger.Error(err.Error())
@@ -315,7 +316,8 @@ func (a *authControllerStruct) Login() gin.HandlerFunc {
 			return
 		}
 
-		// logger.Logger.Debug("Found User", zap.Any("founduser", &foundUser))
+		// loc, _ := time.LoadLocation("Asia/Singapore")
+		// logger.Logger.Debug(fmt.Sprintf("local date time %v", foundUser.Updated_at.In(loc)))
 		c.JSON(http.StatusOK, foundUser)
 	}
 }
@@ -521,7 +523,7 @@ func (a *authControllerStruct) ResetUserPassword() gin.HandlerFunc {
 
 		updateObj = append(updateObj, bson.E{Key: "password", Value: hashedPassword})
 
-		Updated_at, err := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		Updated_at, err := timeHelper.GetCurrentTimeSingapore()
 
 		if err != nil {
 			logger.Logger.Error(err.Error())

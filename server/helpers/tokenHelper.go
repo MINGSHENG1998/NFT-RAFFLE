@@ -120,7 +120,7 @@ func (t *tokenHelperStruct) UpdateAllTokens(signedToken, signedRefreshToken, use
 	updateObj = append(updateObj, bson.E{Key: "access_token", Value: signedToken})
 	updateObj = append(updateObj, bson.E{Key: "refresh_token", Value: signedRefreshToken})
 
-	Updated_at, err := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	Updated_at, err := TimeHelper.GetCurrentTimeSingapore()
 
 	if err != nil {
 		return err

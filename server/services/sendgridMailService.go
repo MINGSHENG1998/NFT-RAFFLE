@@ -28,6 +28,7 @@ var (
 	mailCollection    *mongo.Collection                    = nftRaffleDb.OpenCollection(nftRaffleDbClient, "mail")
 
 	dotEnvHelper helpers.IDotEnvHelper = helpers.DotEnvHelper
+	timeHelper   helpers.ITimeHelper   = helpers.TimeHelper
 
 	sendgridMailVerificationDynamicTemplateId  string = dotEnvHelper.GetEnvVariable("SENDGRID_MAIL_VERIFICATION_DYNAMIC_TEMPLATE_ID")
 	sendgridMailPasswordResetDynamicTemplateId string = dotEnvHelper.GetEnvVariable("SENDGRID_MAIL_PASSWORD_RESET_DYNAMIC_TEMPLATE_ID")
@@ -111,14 +112,14 @@ func (s *sendGridMailServiceStruct) CreateNewMail(mailType enums.MailType, email
 	mail.Code = randomSixDigits
 	mail.Type = mailType.String()
 
-	mail.Created_at, err = time.Parse(time.RFC3339, time.Now().Local().Format(time.RFC3339))
+	mail.Created_at, err = timeHelper.GetCurrentTimeSingapore()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
 		return err
 	}
 
-	mail.Updated_at, err = time.Parse(time.RFC3339, time.Now().Local().Format(time.RFC3339))
+	mail.Updated_at, err = timeHelper.GetCurrentTimeSingapore()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -146,7 +147,7 @@ func (s *sendGridMailServiceStruct) UpdateEmail(mailType enums.MailType, email s
 	updateObj = append(updateObj, bson.E{Key: "code", Value: randomSixDigits})
 	updateObj = append(updateObj, bson.E{Key: "expires_at", Value: expires_at})
 
-	Updated_at, err := time.Parse(time.RFC3339, time.Now().Local().Format(time.RFC3339))
+	Updated_at, err := timeHelper.GetCurrentTimeSingapore()
 
 	if err != nil {
 		return err
