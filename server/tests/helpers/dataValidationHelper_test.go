@@ -1,4 +1,4 @@
-package test_helpers
+package tests_helpers
 
 import (
 	"nft-raffle/helpers"

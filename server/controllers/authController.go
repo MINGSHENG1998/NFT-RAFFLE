@@ -644,7 +644,10 @@ func (a *authControllerStruct) TestRedis() gin.HandlerFunc {
 			return
 		}
 
+		uid := c.GetString("uid")
+
 		c.JSON(http.StatusOK, gin.H{
+			"user_id":                            uid,
 			"blacklist_access_token_expiration":  blacklistAccessTokenExpirationStr,
 			"blacklist_refresh_token_expiration": blacklistRefreshTokenExpirationStr,
 		})
