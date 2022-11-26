@@ -29,9 +29,9 @@ var (
 )
 
 type ISendGridController interface {
-	VerifyVerificationMail() gin.HandlerFunc
-	SendPasswordResetMail() gin.HandlerFunc
-	VerifyPasswordResetMail() gin.HandlerFunc
+	VerifyVerificationMail(c *gin.Context)
+	SendPasswordResetMail(c *gin.Context)
+	VerifyPasswordResetMail(c *gin.Context)
 }
 
 type sendGridControllerStruct struct{}
@@ -40,366 +40,360 @@ func NewSendGridController() ISendGridController {
 	return &sendGridControllerStruct{}
 }
 
-func (s *sendGridControllerStruct) VerifyVerificationMail() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		encryptedEmail := c.Query("email")
+func (s *sendGridControllerStruct) VerifyVerificationMail(c *gin.Context) {
+	encryptedEmail := c.Query("email")
 
-		if encryptedEmail == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "email query param is not existing in the URL"})
-			return
+	if encryptedEmail == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email query param is not existing in the URL"})
+		return
+	}
+
+	encryptedCode := c.Query("code")
+
+	if encryptedCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "code query param is not existing in the URL"})
+		return
+	}
+
+	email, err := aesEncryptionHelper.AesGCMDecrypt(encryptedEmail)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	code, err := aesEncryptionHelper.AesGCMDecrypt(encryptedCode)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var verificationMail models.Mail
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	err = mailCollection.FindOne(ctx, bson.D{
+		{Key: "email", Value: email},
+		{Key: "type", Value: enums.MailVerification.String()},
+	}).Decode(&verificationMail)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "email is not valid"})
+		return
+	}
+
+	// check for the code
+	if verificationMail.Code != code {
+		logger.Logger.Error("verification code does not match")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "verification code does not match"})
+		return
+	}
+
+	// check for expires_at
+	if verificationMail.Expires_at.Unix() < time.Now().Local().Unix() {
+		logger.Logger.Error("verification mail has expired")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "verification mail has expired"})
+		return
+	}
+
+	// update user.Is_email_verified to true
+	var updateObj bson.D
+
+	updateObj = append(updateObj, bson.E{Key: "is_email_verified", Value: true})
+
+	Updated_at, err := timeHelper.GetCurrentTimeSingapore()
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while parsing updated_at"})
+		return
+	}
+
+	updateObj = append(updateObj, bson.E{Key: "updated_at", Value: Updated_at})
+
+	upsert := true
+	filter := bson.M{"email": verificationMail.Email}
+	opt := options.UpdateOptions{
+		Upsert: &upsert,
+	}
+
+	err = nftRaffleDbClient.UseSession(ctx, func(sessionContext mongo.SessionContext) error {
+		err := sessionContext.StartTransaction()
+		if err != nil {
+			return err
 		}
 
-		encryptedCode := c.Query("code")
-
-		if encryptedCode == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "code query param is not existing in the URL"})
-			return
-		}
-
-		email, err := aesEncryptionHelper.AesGCMDecrypt(encryptedEmail)
+		_, err = userCollection.UpdateOne(
+			sessionContext,
+			filter,
+			bson.D{
+				{Key: "$set", Value: updateObj},
+			},
+			&opt,
+		)
 
 		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+			sessionContext.AbortTransaction(sessionContext)
+			return err
 		}
 
-		code, err := aesEncryptionHelper.AesGCMDecrypt(encryptedCode)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		var verificationMail models.Mail
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-
-		err = mailCollection.FindOne(ctx, bson.D{
+		// now remove verifcation mail from mailCollection
+		_, err = mailCollection.DeleteOne(sessionContext, bson.D{
 			{Key: "email", Value: email},
 			{Key: "type", Value: enums.MailVerification.String()},
-		}).Decode(&verificationMail)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "email is not valid"})
-			return
-		}
-
-		// check for the code
-		if verificationMail.Code != code {
-			logger.Logger.Error("verification code does not match")
-			c.JSON(http.StatusBadRequest, gin.H{"error": "verification code does not match"})
-			return
-		}
-
-		// check for expires_at
-		if verificationMail.Expires_at.Unix() < time.Now().Local().Unix() {
-			logger.Logger.Error("verification mail has expired")
-			c.JSON(http.StatusBadRequest, gin.H{"error": "verification mail has expired"})
-			return
-		}
-
-		// update user.Is_email_verified to true
-		var updateObj bson.D
-
-		updateObj = append(updateObj, bson.E{Key: "is_email_verified", Value: true})
-
-		Updated_at, err := timeHelper.GetCurrentTimeSingapore()
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while parsing updated_at"})
-			return
-		}
-
-		updateObj = append(updateObj, bson.E{Key: "updated_at", Value: Updated_at})
-
-		upsert := true
-		filter := bson.M{"email": verificationMail.Email}
-		opt := options.UpdateOptions{
-			Upsert: &upsert,
-		}
-
-		err = nftRaffleDbClient.UseSession(ctx, func(sessionContext mongo.SessionContext) error {
-			err := sessionContext.StartTransaction()
-			if err != nil {
-				return err
-			}
-
-			_, err = userCollection.UpdateOne(
-				sessionContext,
-				filter,
-				bson.D{
-					{Key: "$set", Value: updateObj},
-				},
-				&opt,
-			)
-
-			if err != nil {
-				sessionContext.AbortTransaction(sessionContext)
-				return err
-			}
-
-			// now remove verifcation mail from mailCollection
-			_, err = mailCollection.DeleteOne(sessionContext, bson.D{
-				{Key: "email", Value: email},
-				{Key: "type", Value: enums.MailVerification.String()},
-			})
-
-			if err != nil {
-				sessionContext.AbortTransaction(sessionContext)
-				return err
-			}
-
-			if err := sessionContext.CommitTransaction(sessionContext); err != nil {
-				return err
-			}
-
-			return nil
 		})
 
 		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+			sessionContext.AbortTransaction(sessionContext)
+			return err
 		}
 
-		// generate token and return user
-		var user models.User
-
-		err = userCollection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+		if err := sessionContext.CommitTransaction(sessionContext); err != nil {
+			return err
 		}
 
-		signedToken, signedRefreshToken, err := tokenHelper.GenerateAllTokens(
-			user.Email, user.First_name, user.Last_name, user.User_id, user.User_role, user.Is_email_verified)
+		return nil
+	})
 
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		err = tokenHelper.UpdateAllTokens(signedToken, signedRefreshToken, user.User_id)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		err = userCollection.FindOne(ctx, bson.M{"user_id": user.User_id}).Decode(&user)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, user)
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
+
+	// generate token and return user
+	var user models.User
+
+	err = userCollection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	signedToken, signedRefreshToken, err := tokenHelper.GenerateAllTokens(
+		user.Email, user.First_name, user.Last_name, user.User_id, user.User_role, user.Is_email_verified)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = tokenHelper.UpdateAllTokens(signedToken, signedRefreshToken, user.User_id)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = userCollection.FindOne(ctx, bson.M{"user_id": user.User_id}).Decode(&user)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
 }
 
-func (s *sendGridControllerStruct) SendPasswordResetMail() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var mailDto dto.SendPasswordResetMailRequestDto
-		var user models.User
+func (s *sendGridControllerStruct) SendPasswordResetMail(c *gin.Context) {
+	var mailDto dto.SendPasswordResetMailRequestDto
+	var user models.User
 
-		if err := c.BindJSON(&mailDto); err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		if emailValidationErr := dataValidationHelper.IsEmailValid(mailDto.Email); emailValidationErr != nil {
-			logger.Logger.Error(emailValidationErr.Error())
-			c.JSON(http.StatusBadRequest, gin.H{"error": emailValidationErr.Error()})
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-
-		err := userCollection.FindOne(ctx, bson.M{"email": mailDto.Email}).Decode(&user)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "email not valid"})
-			return
-		}
-
-		randomSixDigits := randomCodeGenerator.GenerateRandomDigits(6)
-		passwordResetMailCodeExpirationInt, err := strconv.ParseInt(passwordResetMailCodeExpiration, 10, 64)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		expires_at, err := timeHelper.GetCurrentTimeSingaporeWithAdditionalDuration(time.Hour * time.Duration(passwordResetMailCodeExpirationInt))
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while parsing mail expires_at"})
-			return
-		}
-
-		// send email
-		tos := []*mail.Email{
-			// hardcoded for testing
-			mail.NewEmail("yyhyap98", "yyhyap98@gmail.com"),
-		}
-
-		dynamicTemplateData := map[string]string{}
-		dynamicTemplateData["Full_Name"] = fmt.Sprintf("%s %s", user.First_name, user.Last_name)
-
-		encryptedEmailValue, err := aesEncryptionHelper.AesGCMEncrypt(user.Email)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while encrypting user email"})
-			return
-		}
-
-		encryptedRandomSixDigits, err := aesEncryptionHelper.AesGCMEncrypt(randomSixDigits)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while encrypting random six digits"})
-			return
-		}
-
-		dynamicTemplateData["Password_Reset_Mail_Link"] = fmt.Sprintf(
-			"%s:%s/api/send-grid/test?email=%s&code=%s",
-			passwordResetMailReturnHost, passwordResetMailReturnPort, encryptedEmailValue, encryptedRandomSixDigits,
-		)
-
-		mailReq := &dto.MailRequest{
-			FromName:            fromName,
-			FromEmail:           fromEmail,
-			MailType:            enums.PasswordReset,
-			Tos:                 tos,
-			DynamicTemplateData: dynamicTemplateData,
-		}
-
-		go sendGridMailService.SendMail(mailReq)
-
-		mailCount, err := mailCollection.CountDocuments(
-			ctx,
-			bson.D{
-				{Key: "email", Value: user.Email},
-				{Key: "type", Value: enums.PasswordReset.String()},
-			},
-		)
-
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while counting mail from mail collection in db"})
-			return
-		}
-
-		if mailCount > 0 {
-			// update current password reset mail
-			// update mail in db
-			mailUpdateError := sendGridMailService.UpdateEmail(enums.PasswordReset, user.Email, randomSixDigits, expires_at)
-
-			if mailUpdateError != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":         "error occured while updating verification email in db",
-					"error_details": mailUpdateError.Error(),
-				})
-				return
-			}
-		} else {
-			// create new password reset mail
-			// insert mail into db
-			mailInsertError := sendGridMailService.CreateNewMail(enums.PasswordReset, user.Email, randomSixDigits, expires_at)
-
-			if mailInsertError != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":         "error occured while inserting new verification email into db",
-					"error_details": mailInsertError.Error(),
-				})
-				return
-			}
-		}
-
-		c.Status(http.StatusOK)
+	if err := c.BindJSON(&mailDto); err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
-}
 
-func (s *sendGridControllerStruct) VerifyPasswordResetMail() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		encryptedEmail := c.Query("email")
+	if emailValidationErr := dataValidationHelper.IsEmailValid(mailDto.Email); emailValidationErr != nil {
+		logger.Logger.Error(emailValidationErr.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": emailValidationErr.Error()})
+		return
+	}
 
-		if encryptedEmail == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "email query param is not existing in the URL"})
-			return
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
-		encryptedCode := c.Query("code")
+	err := userCollection.FindOne(ctx, bson.M{"email": mailDto.Email}).Decode(&user)
 
-		if encryptedCode == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "code query param is not existing in the URL"})
-			return
-		}
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "email not valid"})
+		return
+	}
 
-		email, err := aesEncryptionHelper.AesGCMDecrypt(encryptedEmail)
+	randomSixDigits := randomCodeGenerator.GenerateRandomDigits(6)
+	passwordResetMailCodeExpirationInt, err := strconv.ParseInt(passwordResetMailCodeExpiration, 10, 64)
 
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-		code, err := aesEncryptionHelper.AesGCMDecrypt(encryptedCode)
+	expires_at, err := timeHelper.GetCurrentTimeSingaporeWithAdditionalDuration(time.Hour * time.Duration(passwordResetMailCodeExpirationInt))
 
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while parsing mail expires_at"})
+		return
+	}
 
-		var passwordResetMail models.Mail
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
+	// send email
+	tos := []*mail.Email{
+		// hardcoded for testing
+		mail.NewEmail("yyhyap98", "yyhyap98@gmail.com"),
+	}
 
-		err = mailCollection.FindOne(ctx, bson.D{
-			{Key: "email", Value: email},
+	dynamicTemplateData := map[string]string{}
+	dynamicTemplateData["Full_Name"] = fmt.Sprintf("%s %s", user.First_name, user.Last_name)
+
+	encryptedEmailValue, err := aesEncryptionHelper.AesGCMEncrypt(user.Email)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while encrypting user email"})
+		return
+	}
+
+	encryptedRandomSixDigits, err := aesEncryptionHelper.AesGCMEncrypt(randomSixDigits)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while encrypting random six digits"})
+		return
+	}
+
+	dynamicTemplateData["Password_Reset_Mail_Link"] = fmt.Sprintf(
+		"%s:%s/api/send-grid/test?email=%s&code=%s",
+		passwordResetMailReturnHost, passwordResetMailReturnPort, encryptedEmailValue, encryptedRandomSixDigits,
+	)
+
+	mailReq := &dto.MailRequest{
+		FromName:            fromName,
+		FromEmail:           fromEmail,
+		MailType:            enums.PasswordReset,
+		Tos:                 tos,
+		DynamicTemplateData: dynamicTemplateData,
+	}
+
+	go sendGridMailService.SendMail(mailReq)
+
+	mailCount, err := mailCollection.CountDocuments(
+		ctx,
+		bson.D{
+			{Key: "email", Value: user.Email},
 			{Key: "type", Value: enums.PasswordReset.String()},
-		}).Decode(&passwordResetMail)
+		},
+	)
 
-		if err != nil {
-			logger.Logger.Error(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "email is not valid"})
-			return
-		}
-
-		// check for the code
-		if passwordResetMail.Code != code {
-			logger.Logger.Error("verification code does not match")
-			c.JSON(http.StatusBadRequest, gin.H{"error": "verification code does not match"})
-			return
-		}
-
-		// check for expires_at
-		if passwordResetMail.Expires_at.Unix() < time.Now().Local().Unix() {
-			logger.Logger.Error("verification mail has expired")
-			c.JSON(http.StatusBadRequest, gin.H{"error": "verification mail has expired"})
-			return
-		}
-
-		// password reset mail verified
-		c.JSON(http.StatusOK, gin.H{
-			"email": passwordResetMail.Email,
-			"code":  passwordResetMail.Code,
-		})
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while counting mail from mail collection in db"})
+		return
 	}
+
+	if mailCount > 0 {
+		// update current password reset mail
+		// update mail in db
+		mailUpdateError := sendGridMailService.UpdateEmail(enums.PasswordReset, user.Email, randomSixDigits, expires_at)
+
+		if mailUpdateError != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":         "error occured while updating verification email in db",
+				"error_details": mailUpdateError.Error(),
+			})
+			return
+		}
+	} else {
+		// create new password reset mail
+		// insert mail into db
+		mailInsertError := sendGridMailService.CreateNewMail(enums.PasswordReset, user.Email, randomSixDigits, expires_at)
+
+		if mailInsertError != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":         "error occured while inserting new verification email into db",
+				"error_details": mailInsertError.Error(),
+			})
+			return
+		}
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (s *sendGridControllerStruct) VerifyPasswordResetMail(c *gin.Context) {
+	encryptedEmail := c.Query("email")
+
+	if encryptedEmail == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email query param is not existing in the URL"})
+		return
+	}
+
+	encryptedCode := c.Query("code")
+
+	if encryptedCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "code query param is not existing in the URL"})
+		return
+	}
+
+	email, err := aesEncryptionHelper.AesGCMDecrypt(encryptedEmail)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	code, err := aesEncryptionHelper.AesGCMDecrypt(encryptedCode)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var passwordResetMail models.Mail
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	err = mailCollection.FindOne(ctx, bson.D{
+		{Key: "email", Value: email},
+		{Key: "type", Value: enums.PasswordReset.String()},
+	}).Decode(&passwordResetMail)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "email is not valid"})
+		return
+	}
+
+	// check for the code
+	if passwordResetMail.Code != code {
+		logger.Logger.Error("verification code does not match")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "verification code does not match"})
+		return
+	}
+
+	// check for expires_at
+	if passwordResetMail.Expires_at.Unix() < time.Now().Local().Unix() {
+		logger.Logger.Error("verification mail has expired")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "verification mail has expired"})
+		return
+	}
+
+	// password reset mail verified
+	c.JSON(http.StatusOK, gin.H{
+		"email": passwordResetMail.Email,
+		"code":  passwordResetMail.Code,
+	})
 }

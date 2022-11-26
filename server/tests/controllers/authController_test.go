@@ -19,7 +19,7 @@ var (
 
 func TestLoginSuccess(t *testing.T) {
 	r := tests.GetGinEngine()
-	r.POST("/api/login", fakeAuthController.FakeLogin())
+	r.POST("/api/login", fakeAuthController.FakeLogin)
 
 	loginUser := &models.User{
 		Email:    "testingaaa@gmail.com",
@@ -36,7 +36,7 @@ func TestLoginSuccess(t *testing.T) {
 
 func TestLoginInvalidPassword(t *testing.T) {
 	r := tests.GetGinEngine()
-	r.POST("/api/login", fakeAuthController.FakeLogin())
+	r.POST("/api/login", fakeAuthController.FakeLogin)
 
 	loginUser := &models.User{
 		Email:    "testingaaa@gmail.com",
