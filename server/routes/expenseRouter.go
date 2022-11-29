@@ -14,4 +14,5 @@ func ExpenseRoutes(superRoute *gin.RouterGroup) {
 	expenseRouter := superRoute.Group("/expense")
 
 	expenseRouter.POST("/create-new-expense", authMiddleware.Authenticate, expenseController.CreateNewExpense)
+	expenseRouter.POST("/monthly-expense", authMiddleware.Authenticate, expenseController.GetMonthlyExpenses)
 }
