@@ -240,7 +240,12 @@ func (e expenseControllerStruct) GetExpenses(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, data[0])
+	if len(data) > 0 {
+		c.JSON(http.StatusOK, data[0])
+		return
+	}
+
+	c.Status(http.StatusOK)
 }
 
 func (e expenseControllerStruct) GetExpensesByType(c *gin.Context) {
@@ -359,7 +364,12 @@ func (e expenseControllerStruct) GetExpensesByType(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, data[0])
+	if len(data) > 0 {
+		c.JSON(http.StatusOK, data[0])
+		return
+	}
+
+	c.Status(http.StatusOK)
 }
 
 func (e expenseControllerStruct) UpdateExpense(c *gin.Context) {
