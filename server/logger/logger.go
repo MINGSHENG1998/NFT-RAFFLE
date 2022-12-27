@@ -1,7 +1,11 @@
 package logger
 
 import (
+	"fmt"
+	"log"
 	"os"
+	"path/filepath"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -15,7 +19,13 @@ func InitializeLogger() *zap.Logger {
 	config.EncodeTime = zapcore.ISO8601TimeEncoder
 	fileEncoder := zapcore.NewJSONEncoder(config)
 	consoleEncoder := zapcore.NewConsoleEncoder(config)
-	logFile, _ := os.OpenFile("text.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// specify the path of log file here
+	logFilePath := filepath.Join(".", "log_file")
+	err := os.MkdirAll(logFilePath, os.ModePerm)
+	if err != nil {
+		log.Println("unable to create log file folder")
+	}
+	logFile, _ := os.OpenFile(fmt.Sprintf("%v/server_log_%v.log", logFilePath, time.Now().Format("2006-01-02")), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	writer := zapcore.AddSync(logFile)
 	// set log level here
 	defaultLogLevel := zapcore.DebugLevel
