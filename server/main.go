@@ -2,8 +2,10 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"nft-raffle/helpers"
 	"nft-raffle/routes"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +17,7 @@ var (
 func init() {
 	log.SetPrefix("[LOG] ")
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Llongfile)
+	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {

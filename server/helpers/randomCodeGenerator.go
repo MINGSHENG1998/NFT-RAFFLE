@@ -3,7 +3,6 @@ package helpers
 import (
 	"math/rand"
 	"strings"
-	"time"
 )
 
 var (
@@ -23,7 +22,6 @@ func NewRandomCodeGenerator() IRandomCodeGenerator {
 }
 
 func (r *randomCodeGeneratorStruct) GenerateRandomDigits(length int) string {
-	rand.Seed(time.Now().UnixNano())
 	digitSize := len(digits)
 	var sb strings.Builder
 
