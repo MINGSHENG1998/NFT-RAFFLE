@@ -1,26 +1,36 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"nft-raffle/logger"
 	"nft-raffle/models"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
 var (
-	FakeAuthController IFakeAuthController = NewFakeAuthController()
+	fakeAuthController     *fakeAuthControllerStruct
+	fakeAuthControllerOnce sync.Once
 )
 
 type IFakeAuthController interface {
 	FakeLogin(c *gin.Context)
 }
 
-func NewFakeAuthController() IFakeAuthController {
-	return &authControllerStruct{}
+type fakeAuthControllerStruct struct{}
+
+func GetFakeAuthController() *fakeAuthControllerStruct {
+	if fakeAuthController == nil {
+		fakeAuthControllerOnce.Do(func() {
+			fakeAuthController = &fakeAuthControllerStruct{}
+		})
+	}
+	return fakeAuthController
 }
 
-func (a *authControllerStruct) FakeLogin(c *gin.Context) {
+func (a *fakeAuthControllerStruct) FakeLogin(c *gin.Context) {
 	var user models.User
 	var foundUser models.User
 
@@ -31,9 +41,12 @@ func (a *authControllerStruct) FakeLogin(c *gin.Context) {
 	}
 
 	// find user from mongodb
-	foundUser = models.User{
-		Email:    "testingaaa@gmail.com",
-		Password: "$2a$14$X7pxIBiQtS/SFhyOHo1aIO6PFTEY5.w2xHR84e.0nOi.kqwdiTylm",
+	foundUser, err := fakeControllerRepository.MockFindUserByEmailSuccess(user.Email)
+
+	if err != nil {
+		logger.Logger.Error(fmt.Errorf("error while finding user: %v", err).Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "email or password is incorrect"})
+		return
 	}
 
 	passwordValidationError := passwordHelper.VerifyPassword(foundUser.Password, user.Password)
@@ -54,10 +67,12 @@ func (a *authControllerStruct) FakeLogin(c *gin.Context) {
 	// update all tokens
 
 	// find one user
-	foundUser = models.User{
-		Email:      "testingaaa@gmail.com",
-		First_name: "aaa",
-		Last_name:  "bbb",
+	foundUser, err = fakeControllerRepository.MockFindUserByIdSuccess(foundUser.User_id)
+
+	if err != nil {
+		logger.Logger.Error(fmt.Errorf("error while finding user: %v", err).Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "email or password is incorrect"})
+		return
 	}
 
 	// loc, _ := time.LoadLocation("Asia/Singapore")

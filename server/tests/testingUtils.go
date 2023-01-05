@@ -5,6 +5,7 @@ import (
 )
 
 func GetGinEngine() *gin.Engine {
+	gin.SetMode(gin.TestMode)
 	r := gin.Default()
 	return r
 }

@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	fakeAuthController controllers.IFakeAuthController = controllers.FakeAuthController
+	fakeAuthController controllers.IFakeAuthController = controllers.GetFakeAuthController()
 )
 
 func TestLoginSuccess(t *testing.T) {
