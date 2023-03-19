@@ -3,9 +3,9 @@ package helpers
 import "time"
 
 const (
-	singaporeLocation string = "Asia/Singapore"
-	localLocation     string = "Local"
-	dateTimeFormat    string = "2006-01-02 15:04:05"
+	currentLocation string = "Asia/Singapore"
+	localLocation   string = "Local"
+	dateTimeFormat  string = "2006-01-02 15:04:05"
 )
 
 var (
@@ -13,11 +13,11 @@ var (
 )
 
 type ITimeHelper interface {
-	GetCurrentTimeSingapore() (time.Time, error)
-	GetCurrentTimeSingaporeWithAdditionalDuration(d time.Duration) (time.Time, error)
-	GetCurrentDateSingapore() (int, time.Month, int, error)
-	ConvertTimeToSingaporeTime(timeToConvert time.Time) (time.Time, error)
-	ConvertDateTimeStringToSingaporeTime(s string) (time.Time, error)
+	GetCurrentLocationTime() (time.Time, error)
+	GetCurrentLocationTimeWithAdditionalDuration(d time.Duration) (time.Time, error)
+	GetCurrentLocationDate() (int, time.Month, int, error)
+	ConvertTimeToCurrentLocationTime(timeToConvert time.Time) (time.Time, error)
+	ConvertDateTimeStringToCurrentLocationTime(s string) (time.Time, error)
 }
 
 type timeHelperStruct struct{}
@@ -26,8 +26,8 @@ func NewTimeHelper() ITimeHelper {
 	return &timeHelperStruct{}
 }
 
-func (t *timeHelperStruct) GetCurrentTimeSingapore() (time.Time, error) {
-	loc, err := time.LoadLocation(singaporeLocation)
+func (t *timeHelperStruct) GetCurrentLocationTime() (time.Time, error) {
+	loc, err := time.LoadLocation(currentLocation)
 
 	if err != nil {
 		return time.Now(), err
@@ -42,8 +42,8 @@ func (t *timeHelperStruct) GetCurrentTimeSingapore() (time.Time, error) {
 	return currentTime, nil
 }
 
-func (t *timeHelperStruct) GetCurrentTimeSingaporeWithAdditionalDuration(d time.Duration) (time.Time, error) {
-	loc, err := time.LoadLocation(singaporeLocation)
+func (t *timeHelperStruct) GetCurrentLocationTimeWithAdditionalDuration(d time.Duration) (time.Time, error) {
+	loc, err := time.LoadLocation(currentLocation)
 
 	if err != nil {
 		return time.Now(), err
@@ -58,10 +58,10 @@ func (t *timeHelperStruct) GetCurrentTimeSingaporeWithAdditionalDuration(d time.
 	return newTime, nil
 }
 
-func (t *timeHelperStruct) GetCurrentDateSingapore() (int, time.Month, int, error) {
+func (t *timeHelperStruct) GetCurrentLocationDate() (int, time.Month, int, error) {
 	var year, day int
 	var month time.Month
-	loc, err := time.LoadLocation(singaporeLocation)
+	loc, err := time.LoadLocation(currentLocation)
 
 	if err != nil {
 		year, month, day = time.Now().Local().Date()
@@ -72,8 +72,8 @@ func (t *timeHelperStruct) GetCurrentDateSingapore() (int, time.Month, int, erro
 	return year, month, day, nil
 }
 
-func (t *timeHelperStruct) ConvertTimeToSingaporeTime(timeToConvert time.Time) (time.Time, error) {
-	loc, err := time.LoadLocation(singaporeLocation)
+func (t *timeHelperStruct) ConvertTimeToCurrentLocationTime(timeToConvert time.Time) (time.Time, error) {
+	loc, err := time.LoadLocation(currentLocation)
 
 	if err != nil {
 		return timeToConvert, err
@@ -82,8 +82,8 @@ func (t *timeHelperStruct) ConvertTimeToSingaporeTime(timeToConvert time.Time) (
 	return timeToConvert.In(loc), nil
 }
 
-func (t *timeHelperStruct) ConvertDateTimeStringToSingaporeTime(s string) (time.Time, error) {
-	loc, err := time.LoadLocation(singaporeLocation)
+func (t *timeHelperStruct) ConvertDateTimeStringToCurrentLocationTime(s string) (time.Time, error) {
+	loc, err := time.LoadLocation(currentLocation)
 
 	if err != nil {
 		return time.Now().Local(), err

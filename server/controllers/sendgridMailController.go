@@ -105,7 +105,7 @@ func (s *sendGridControllerStruct) VerifyVerificationMail(c *gin.Context) {
 
 	updateObj = append(updateObj, bson.E{Key: "is_email_verified", Value: true})
 
-	Updated_at, err := timeHelper.GetCurrentTimeSingapore()
+	Updated_at, err := timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -240,7 +240,7 @@ func (s *sendGridControllerStruct) SendPasswordResetMail(c *gin.Context) {
 		return
 	}
 
-	expires_at, err := timeHelper.GetCurrentTimeSingaporeWithAdditionalDuration(time.Hour * time.Duration(passwordResetMailCodeExpirationInt))
+	expires_at, err := timeHelper.GetCurrentLocationTimeWithAdditionalDuration(time.Hour * time.Duration(passwordResetMailCodeExpirationInt))
 
 	if err != nil {
 		logger.Logger.Error(err.Error())

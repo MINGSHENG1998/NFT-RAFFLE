@@ -113,7 +113,7 @@ func (a *authControllerStruct) SignUp(c *gin.Context) {
 
 	user.Password = hashedPassword
 
-	user.Created_at, err = timeHelper.GetCurrentTimeSingapore()
+	user.Created_at, err = timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -121,7 +121,7 @@ func (a *authControllerStruct) SignUp(c *gin.Context) {
 		return
 	}
 
-	user.Updated_at, err = timeHelper.GetCurrentTimeSingapore()
+	user.Updated_at, err = timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -164,7 +164,7 @@ func (a *authControllerStruct) SignUp(c *gin.Context) {
 		return
 	}
 
-	expires_at, err := timeHelper.GetCurrentTimeSingaporeWithAdditionalDuration(time.Hour * time.Duration(verifcationCodeExpirationInt))
+	expires_at, err := timeHelper.GetCurrentLocationTimeWithAdditionalDuration(time.Hour * time.Duration(verifcationCodeExpirationInt))
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -516,7 +516,7 @@ func (a *authControllerStruct) ResetUserPassword(c *gin.Context) {
 
 	updateObj = append(updateObj, bson.E{Key: "password", Value: hashedPassword})
 
-	Updated_at, err := timeHelper.GetCurrentTimeSingapore()
+	Updated_at, err := timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())

@@ -11,7 +11,7 @@ var (
 )
 
 func TestGetCurrentTimeSingapore(t *testing.T) {
-	time, err := timeHelper.GetCurrentTimeSingapore()
+	time, err := timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		t.Error(err.Error())
@@ -21,7 +21,7 @@ func TestGetCurrentTimeSingapore(t *testing.T) {
 }
 
 func TestGetCurrentTimeSingaporeWithAdditionalDuration(t *testing.T) {
-	time, err := timeHelper.GetCurrentTimeSingaporeWithAdditionalDuration(time.Hour * time.Duration(1))
+	time, err := timeHelper.GetCurrentLocationTimeWithAdditionalDuration(time.Hour * time.Duration(1))
 
 	if err != nil {
 		t.Error(err.Error())
@@ -31,7 +31,7 @@ func TestGetCurrentTimeSingaporeWithAdditionalDuration(t *testing.T) {
 }
 
 func TestGetCurrentDateSingapore(t *testing.T) {
-	year, month, day, err := timeHelper.GetCurrentDateSingapore()
+	year, month, day, err := timeHelper.GetCurrentLocationDate()
 
 	if err != nil {
 		t.Error(err.Error())
@@ -47,7 +47,7 @@ func TestConvertTimeToSingaporeTime(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	singaporeTime, err := timeHelper.ConvertTimeToSingaporeTime(utcTime)
+	singaporeTime, err := timeHelper.ConvertTimeToCurrentLocationTime(utcTime)
 
 	if err != nil {
 		t.Error(err.Error())
@@ -63,7 +63,7 @@ func TestConvertTimeToSingaporeTime(t *testing.T) {
 func TestConvertDateStringToSingaporeDate(t *testing.T) {
 	s := "2022-10-30 23:59:59"
 
-	dateTime, err := timeHelper.ConvertDateTimeStringToSingaporeTime(s)
+	dateTime, err := timeHelper.ConvertDateTimeStringToCurrentLocationTime(s)
 
 	if err != nil {
 		t.Error(err.Error())

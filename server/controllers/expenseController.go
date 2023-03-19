@@ -97,7 +97,7 @@ func (e expenseControllerStruct) CreateNewExpense(c *gin.Context) {
 	newExpense.Expense_label = request.ExpenseLabel
 	newExpense.Expense_type = request.ExpenseType
 	newExpense.Expense_amount = request.ExpenseAmount
-	newExpense.Expense_time, err = timeHelper.ConvertDateTimeStringToSingaporeTime(request.ExpenseTime)
+	newExpense.Expense_time, err = timeHelper.ConvertDateTimeStringToCurrentLocationTime(request.ExpenseTime)
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -105,7 +105,7 @@ func (e expenseControllerStruct) CreateNewExpense(c *gin.Context) {
 		return
 	}
 
-	newExpense.Created_at, err = timeHelper.GetCurrentTimeSingapore()
+	newExpense.Created_at, err = timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -113,7 +113,7 @@ func (e expenseControllerStruct) CreateNewExpense(c *gin.Context) {
 		return
 	}
 
-	newExpense.Updated_at, err = timeHelper.GetCurrentTimeSingapore()
+	newExpense.Updated_at, err = timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -162,7 +162,7 @@ func (e expenseControllerStruct) GetExpenses(c *gin.Context) {
 		return
 	}
 
-	fromDate, err := timeHelper.ConvertDateTimeStringToSingaporeTime(request.FromDate)
+	fromDate, err := timeHelper.ConvertDateTimeStringToCurrentLocationTime(request.FromDate)
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -170,7 +170,7 @@ func (e expenseControllerStruct) GetExpenses(c *gin.Context) {
 		return
 	}
 
-	toDate, err := timeHelper.ConvertDateTimeStringToSingaporeTime(request.ToDate)
+	toDate, err := timeHelper.ConvertDateTimeStringToCurrentLocationTime(request.ToDate)
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -275,7 +275,7 @@ func (e expenseControllerStruct) GetExpensesByType(c *gin.Context) {
 		return
 	}
 
-	fromDate, err := timeHelper.ConvertDateTimeStringToSingaporeTime(request.FromDate)
+	fromDate, err := timeHelper.ConvertDateTimeStringToCurrentLocationTime(request.FromDate)
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -283,7 +283,7 @@ func (e expenseControllerStruct) GetExpensesByType(c *gin.Context) {
 		return
 	}
 
-	toDate, err := timeHelper.ConvertDateTimeStringToSingaporeTime(request.ToDate)
+	toDate, err := timeHelper.ConvertDateTimeStringToCurrentLocationTime(request.ToDate)
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -404,7 +404,7 @@ func (e expenseControllerStruct) UpdateExpense(c *gin.Context) {
 	}
 
 	if updateDto.ExpenseTime != nil {
-		newExpenseTime, err := timeHelper.ConvertDateTimeStringToSingaporeTime(*updateDto.ExpenseTime)
+		newExpenseTime, err := timeHelper.ConvertDateTimeStringToCurrentLocationTime(*updateDto.ExpenseTime)
 
 		if err != nil {
 			logger.Logger.Error(err.Error())
@@ -421,7 +421,7 @@ func (e expenseControllerStruct) UpdateExpense(c *gin.Context) {
 		return
 	}
 
-	updated_at, err := timeHelper.GetCurrentTimeSingapore()
+	updated_at, err := timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
