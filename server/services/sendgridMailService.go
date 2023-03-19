@@ -112,14 +112,14 @@ func (s *sendGridMailServiceStruct) CreateNewMail(mailType enums.MailType, email
 	mail.Code = randomSixDigits
 	mail.Type = mailType.String()
 
-	mail.Created_at, err = timeHelper.GetCurrentTimeSingapore()
+	mail.Created_at, err = timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
 		return err
 	}
 
-	mail.Updated_at, err = timeHelper.GetCurrentTimeSingapore()
+	mail.Updated_at, err = timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		logger.Logger.Error(err.Error())
@@ -147,7 +147,7 @@ func (s *sendGridMailServiceStruct) UpdateEmail(mailType enums.MailType, email s
 	updateObj = append(updateObj, bson.E{Key: "code", Value: randomSixDigits})
 	updateObj = append(updateObj, bson.E{Key: "expires_at", Value: expires_at})
 
-	Updated_at, err := timeHelper.GetCurrentTimeSingapore()
+	Updated_at, err := timeHelper.GetCurrentLocationTime()
 
 	if err != nil {
 		return err
