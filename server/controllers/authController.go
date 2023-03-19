@@ -28,9 +28,10 @@ import (
 var (
 	AuthController IAuthController = NewAuthController()
 
-	nftRaffleDbClient *mongo.Client                        = database.NftRaffleDbClient
-	nftRaffleDb       database.INftRaffleMongoDbConnection = database.NftRaffleMongoDbConnection
-	userCollection    *mongo.Collection                    = nftRaffleDb.OpenCollection(nftRaffleDbClient, "user")
+	nftRaffleDbClient          *mongo.Client                        = database.NftRaffleDbClient
+	nftRaffleDb                database.INftRaffleMongoDbConnection = database.NftRaffleMongoDbConnection
+	userCollection             *mongo.Collection                    = nftRaffleDb.OpenCollection(nftRaffleDbClient, "user")
+	usedRefreshTokenCollection *mongo.Collection                    = nftRaffleDb.OpenCollection(nftRaffleDbClient, "usedRefreshToken")
 
 	tokenHelper          helpers.ITokenHelper          = helpers.TokenHelper
 	aesEncryptionHelper  helpers.IAesEncrptionHelper   = helpers.AesEncryptionHelper
@@ -47,6 +48,7 @@ var (
 	fromEmail                 string = dotEnvHelper.GetEnvVariable("SENDGRID_FROM_EMAIL")
 	verifcationMailReturnHost string = dotEnvHelper.GetEnvVariable("VERIFICATION_MAIL_RETURN_HOST")
 	verifcationMailReturnPort string = dotEnvHelper.GetEnvVariable("VERIFICATION_MAIL_RETURN_PORT")
+	refreshTokenTTL                  = dotEnvHelper.GetEnvVariable("REFRESH_TOKEN_TTL")
 
 	validate = validator.New()
 )
@@ -375,6 +377,46 @@ func (a *authControllerStruct) RefreshToken(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
+
+	// find in used refresh token
+	usedRefreshTokenCount, err := usedRefreshTokenCollection.CountDocuments(ctx, bson.M{"refresh_token": signedRefreshToken})
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// if found
+	if usedRefreshTokenCount > 0 {
+		logger.Logger.Info("refresh token is used previously")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "refresh token is used previously"})
+		return
+	}
+
+	refreshTokenTTLHoursInt, err := strconv.Atoi(refreshTokenTTL)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// save the refresh token into used refresh token
+	var usedRefreshToken models.UsedRefreshToken
+	usedRefreshToken.ID = primitive.NewObjectID()
+	usedRefreshToken.Token_id = usedRefreshToken.ID.Hex()
+	usedRefreshToken.Refresh_token = signedRefreshToken
+	usedRefreshToken.Issued_at_unix = time.Now().Unix()
+	usedRefreshToken.Expired_at_unix = time.Now().Add(time.Hour * time.Duration(refreshTokenTTLHoursInt)).Add(time.Hour * time.Duration(24)).Unix()
+
+	_, err = usedRefreshTokenCollection.InsertOne(ctx, usedRefreshToken)
+
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	err = userCollection.FindOne(ctx, bson.M{"user_id": uid}).Decode(&foundUser)
 
