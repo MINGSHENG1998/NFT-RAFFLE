@@ -9,7 +9,7 @@ func main() {
 	forever := make(chan struct{})
 
 	container := services.NewContainer()
-	container.HelloService.HelloCron()
+	container.UsedRefreshTokenService.TestCount()
 
 	fmt.Println("Press ctrl+C to exit")
 	<-forever
