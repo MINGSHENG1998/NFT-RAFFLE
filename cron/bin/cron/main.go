@@ -8,8 +8,8 @@ import (
 func main() {
 	forever := make(chan struct{})
 
-	serviceContainer := services.NewServiceContainer()
-	serviceContainer.HelloService.HelloCron()
+	container := services.NewContainer()
+	container.HelloService.HelloCron()
 
 	fmt.Println("Press ctrl+C to exit")
 	<-forever

@@ -1,11 +1,19 @@
 package services
 
-type ServiceContainer struct {
+import "nft-raffle-cron/database"
+
+type Container struct {
 	HelloService *HelloService
+
+	NftRaffleMongoDb *database.NftRaffleMongoDb
 }
 
-func NewServiceContainer() *ServiceContainer {
-	return &ServiceContainer{
-		HelloService: GetHelloService(),
+func NewContainer() *Container {
+	nftRaffleMongoDb := database.GetNftRaffleMongoDb()
+
+	return &Container{
+		HelloService: GetHelloService(nftRaffleMongoDb),
+
+		NftRaffleMongoDb: nftRaffleMongoDb,
 	}
 }
