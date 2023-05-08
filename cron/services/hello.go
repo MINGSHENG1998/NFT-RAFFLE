@@ -1,6 +1,7 @@
 package services
 
 import (
+	"nft-raffle-cron/database"
 	"nft-raffle-cron/logger"
 	"nft-raffle-cron/utils"
 	"sync"
@@ -15,12 +16,16 @@ var (
 	timeUtil = utils.GetTimeUtil()
 )
 
-type HelloService struct{}
+type HelloService struct {
+	nftRaffleMongoDb *database.NftRaffleMongoDb
+}
 
-func GetHelloService() *HelloService {
+func GetHelloService(nftRaffleMongoDb *database.NftRaffleMongoDb) *HelloService {
 	if helloService == nil {
 		helloServiceOnce.Do(func() {
-			helloService = &HelloService{}
+			helloService = &HelloService{
+				nftRaffleMongoDb: nftRaffleMongoDb,
+			}
 		})
 	}
 	return helloService
