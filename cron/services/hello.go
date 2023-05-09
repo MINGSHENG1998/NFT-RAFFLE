@@ -3,7 +3,6 @@ package services
 import (
 	"nft-raffle-cron/database"
 	"nft-raffle-cron/logger"
-	"nft-raffle-cron/utils"
 	"sync"
 
 	"github.com/go-co-op/gocron"
@@ -12,8 +11,6 @@ import (
 var (
 	helloService     *HelloService
 	helloServiceOnce sync.Once
-
-	timeUtil = utils.GetTimeUtil()
 )
 
 type HelloService struct {

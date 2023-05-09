@@ -25,6 +25,16 @@ func GetTimeUtil() *TimeUtil {
 	return timeUtil
 }
 
-func (s *TimeUtil) GetCurrentLocation() (*time.Location, error) {
+func (u *TimeUtil) GetCurrentLocation() (*time.Location, error) {
 	return time.LoadLocation(currentLocation)
+}
+
+func (u *TimeUtil) Now() (int64, error) {
+	loc, err := time.LoadLocation(currentLocation)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return time.Now().In(loc).Unix(), nil
 }
