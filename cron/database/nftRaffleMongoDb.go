@@ -64,7 +64,7 @@ func (db *NftRaffleMongoDb) GetClient() *mongo.Client {
 				logger.Logger.Fatal(err.Error())
 			}
 
-			logger.Logger.Info("Connected to MongoDB!!!")
+			// logger.Logger.Info("Connected to MongoDB!!!")
 
 			nftRaffleMongoDbClient = client
 		})

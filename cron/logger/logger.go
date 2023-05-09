@@ -30,7 +30,7 @@ func InitializeLogger() *zap.Logger {
 	// set log level here
 	defaultLogLevel := zapcore.DebugLevel
 	core := zapcore.NewTee(
-		zapcore.NewCore(fileEncoder, writer, zapcore.ErrorLevel),
+		zapcore.NewCore(fileEncoder, writer, zapcore.WarnLevel),
 		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), defaultLogLevel),
 	)
 	return zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
